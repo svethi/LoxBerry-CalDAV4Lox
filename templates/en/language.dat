@@ -1,0 +1,10 @@
+;
+; Language phrases DE
+;
+TXT0000=possible input commands would be
+TXT0001=start
+TXT0002=end
+TXT0003=days to
+TXT0004=weekday
+TXT0005=current LoxBerry time
+TXT0006=URL for the virtual HTTP input
