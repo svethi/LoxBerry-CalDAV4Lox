@@ -78,12 +78,12 @@ if (preg_match("/google\.com\/calendar/",$calURL)) {
 	preg_match_all("/(BEGIN:VEVENT.*END:VEVENT)/isU",$Datei,$gevents, PREG_PATTERN_ORDER);
 	foreach ( $gevents[1] AS $e => $event ) {
 		$teststart = $ustart;
-    if(preg_match("/DTSTART;.*TZID=(.*);(VALUE=DATE):(.*)\b/",$event['data'],$estart)) {
+		if(preg_match("/DTSTART;.*TZID=(.*);(VALUE=DATE):(.*)\b/",$event,$estart)) {
 			$teststart = $vdstart;
 			$estart[3] .= "T000000";
-      $tmpstart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[3]),new DateTimeZone($estart[1]));
-    } elseif (preg_match("/DTSTART;.*TZID=(.*):(.*)\b/",$event['data'],$estart)) {
-    	$tmpstart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[2]));
+			$estart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[3]),new DateTimeZone($estart[1]));
+		} elseif (preg_match("/DTSTART;.*TZID=(.*):(.*)\b/",$event,$estart)) {
+			$estart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[2]));
 		} elseif (preg_match("/DTSTART(:)(.*)Z\b/",$event,$estart)) {
 			$estart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[2]),new DateTimeZone("UTC"));
 		} elseif (preg_match("/DTSTART;(VALUE=DATE):(.*)\b/",$event,$estart)) {
@@ -91,11 +91,11 @@ if (preg_match("/google\.com\/calendar/",$calURL)) {
 			$estart[2] .= "T000000";
 			$estart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[2]));
 		}
-    if (preg_match("/DTEND;.*TZID=(.*);(VALUE=DATE):(.*)\b/",$event['data'],$eend)) {
+		if (preg_match("/DTEND;.*TZID=(.*);(VALUE=DATE):(.*)\b/",$event,$eend)) {
 			$eend[3] .= "T000000";
-      $tmpend = DateTime::createFromFormat('YmdHis',str_replace("T","",$eend[3]),new DateTimeZone($eend[1]));
-    } elseif (preg_match("/DTEND;.*TZID=(.*):(.*)\b/",$event['data'],$eend)) {
-     	$tmpend = DateTime::createFromFormat('YmdHis',str_replace("T","",$eend[2]),new DateTimeZone($eend[1]));
+			$eend = DateTime::createFromFormat('YmdHis',str_replace("T","",$eend[3]),new DateTimeZone($eend[1]));
+		} elseif (preg_match("/DTEND;.*TZID=(.*):(.*)\b/",$event,$eend)) {
+			$eend = DateTime::createFromFormat('YmdHis',str_replace("T","",$eend[2]),new DateTimeZone($eend[1]));
 		} elseif (preg_match("/DTEND(:)(.*)Z\b/",$event,$eend)) {
 			$eend = DateTime::createFromFormat('YmdHis',str_replace("T","",$eend[2]),new DateTimeZone("UTC"));
 		} elseif (preg_match("/DTEND;(VALUE=DATE):(.*)\b/",$event,$eend)) {
@@ -147,11 +147,11 @@ foreach ( $events AS $k => $event ) {
 	$event['data'] = preg_replace("/BEGIN:VALARM.*END:VALARM/s","",$event['data']);
 	if (preg_match("/SUMMARY:(.*($search)[^\r\n]*)/",$event['data'],$ematch)) {
                 if(preg_match("/DTSTART;.*TZID=(.*);(VALUE=DATE):(.*)\b/",$event['data'],$estart)) {
-												$teststart = $vdstart;
-												$estart[3] .= "T000000";
+			$teststart = $vdstart;
+			$estart[3] .= "T000000";
                         $tmpstart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[3]),new DateTimeZone($estart[1]));
                 } elseif (preg_match("/DTSTART;.*TZID=(.*):(.*)\b/",$event['data'],$estart)) {
-                				$tmpstart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[2]));
+                	$tmpstart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[2]));
                 } elseif (preg_match("/DTSTART(:)(.*)Z\b/",$event['data'],$estart)) {
                         $tmpstart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[2]),new DateTimeZone("UTC"));
                 } elseif (preg_match("/DTSTART;(VALUE=DATE):(.*)\b/",$event['data'],$estart)) {
