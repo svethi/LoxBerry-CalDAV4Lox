@@ -8,7 +8,9 @@
 header('Content-Type: text/html; charset=utf-8');
 
 require_once("class_caldav.php");
-require_once("RRule.php");
+require __DIR__ . '/vendor/autoload.php';
+
+use Recurr\Rule;
 
 date_default_timezone_set(date("e"));
 
@@ -59,21 +61,61 @@ if (preg_match("/google\.com\/calendar/",$calURL)) {
 		if(filemtime($myFile) < date("U")-($cache * 60)) {
 			$fh = fopen($myFile, 'w') or die("can't open file");
 			$context = stream_context_create(array(
-				'http' => array(
+				'https' => array(
 					'header'  => "Authorization: Basic " . base64_encode("$user:$pass"))
 			));
-			$Datei = file_get_contents($calURL, false, $context);
+
+			set_error_handler(
+    		create_function(
+        	'$severity, $message, $file, $line',
+        	'throw new ErrorException($message, $severity, $severity, $file, $line);'
+   	 		)
+			);
+			try {
+				$Datei = file_get_contents($calURL, false, $context);
+			}
+			catch (Exception $e) {
+    		echo $e->getMessage();
+			}
+
+			restore_error_handler();
 			fwrite($fh, $Datei);
 			fclose($fh);
 		} else {
-			$Datei = file_get_contents($myFile);
+			set_error_handler(
+    		create_function(
+        	'$severity, $message, $file, $line',
+        	'throw new ErrorException($message, $severity, $severity, $file, $line);'
+   	 		)
+			);
+			try {
+				$Datei = file_get_contents($calURL, false, $context);
+			}
+			catch (Exception $e) {
+    		echo $e->getMessage();
+			}
+
+			restore_error_handler();
 		}
 	} else {
 		$context = stream_context_create(array(
-			'http' => array(
+			'https' => array(
 				'header'  => "Authorization: Basic " . base64_encode("$user:$pass"))
 		));
-		$Datei = file_get_contents($calURL, false, $context);
+			set_error_handler(
+    		create_function(
+        	'$severity, $message, $file, $line',
+        	'throw new ErrorException($message, $severity, $severity, $file, $line);'
+   	 		)
+			);
+			try {
+				$Datei = file_get_contents($calURL, false, $context);
+			}
+			catch (Exception $e) {
+    		echo $e->getMessage();
+			}
+
+			restore_error_handler();
 	}
 	preg_match_all("/(BEGIN:VEVENT.*END:VEVENT)/isU",$Datei,$gevents, PREG_PATTERN_ORDER);
 	foreach ( $gevents[1] AS $e => $event ) {
@@ -106,34 +148,62 @@ if (preg_match("/google\.com\/calendar/",$calURL)) {
 		date_timezone_set($eend,$localTZ);
 
 		$diff = date_format($eend,"U") - date_format($estart,"U");
-		if ( date_format($eend, "U") >= $ustart  && date_format($estart, "U") <= $uend ) {
-			$events[]['data']=$event;
-		} elseif (preg_match("/RRULE:(.*)/",$event,$rrule)) {
+		if (preg_match("/RRULE:(.*)/",$event,$rrule)) {
 			//Wiederholungen testen
-			$nEvent = new RRule( new iCalDate(date_format($estart,"Ymd\THis")), $rrule[1] );
-			$date = time();
-			do {
-				$date = $nEvent->GetNext();
+			preg_match_all("/EXDATE.*:(.*)\s/iU",$event,$resExDates, PREG_PATTERN_ORDER);
+			foreach ($resExDates[1] AS $d => $ExDate) {
+				$ExDates[] = $ExDate;
 			}
-			while( isset($date) && ($ustart>$date->_epoch+$diff || preg_match("/EXDATE;.*".date("Ymd\THis",$date->_epoch)."/",$event)) );
-			if ( isset($date) && $uend>=$date->_epoch) {
+			if (preg_match("/RDATE.*:(.*)\s/",$event,$resRDates)) {
+				$RDates = explode(",",$resRDates[1]);
+			}
+			$recurr = new \Recurr\Rule;
+			$recurr->loadFromString(trim($rrule[1]));
+			$recurr->setStartDate($estart);
+			if (isset($ExDates)) $recurr->setExDates($ExDates);
+			if (isset($RDates)) $recurr->setRDates($RDates);
+			$constraint = new \Recurr\Transformer\Constraint\BetweenConstraint(DateTime::createFromFormat("U",$teststart), DateTime::createFromFormat("U",$uend),True);
+			$transformer = new \Recurr\Transformer\ArrayTransformer();
+			$recresult = $transformer->transform($recurr,$constraint);
+			$recresult = $recresult->startsAfter(DateTime::createFromFormat("U",$teststart),true);
+			$iterator = $recresult->getIterator();
+			$iterator->uasort(function ($a, $b) {
+		   	 return ($a->getStart() < $b->getStart()) ? -1 : 1;
+			});
+			$recresult = new \Recurr\RecurrenceCollection(iterator_to_array($iterator));
+			if (isset($recresult)) $date = $recresult->first()->getStart();
+			if (isset($date) && $uend>=$date->getTimestamp()) {
 				$event = preg_replace("/RRULE:.*[\n]/","",$event);
-				$event = preg_replace("/DTSTART.*/","DTSTART;TZID=".date("e").":".date("Ymd\THis",$date->_epoch),$event);
-				$event = preg_replace("/DTEND.*/","DTEND;TZID=".date("e").":".date("Ymd\THis",$date->_epoch + $diff),$event);
+				$event = preg_replace("/DTSTART.*/","DTSTART;TZID=".date("e").":".date_format($date,"Ymd\THis"),$event);
+				$event = preg_replace("/DTEND.*/","DTEND;TZID=".date("e").":".date("Ymd\THis",$date->getTimestamp() + $diff),$event);
 				$events[]['data']=$event;
 			}
+		} elseif ( date_format($eend, "U") >= $ustart  && date_format($estart, "U") <= $uend ) {
+                        $events[]['data']=$event;
 		}
 	}
-} else {	
-	$cal = new CalDAVClient( $calURL, $user, $pass, "" );
-	$options = $cal->DoOptionsRequest();
-	if ( isset($options["PROPFIND"]) ) {
-		// Fetch some information about the events in that calendar
+} else {
+	set_error_handler(
+  	create_function(
+     	'$severity, $message, $file, $line',
+     	'throw new ErrorException($message, $severity, $severity, $file, $line);'
+  	)
+	);
+	try {
+		$cal = new CalDAVClient( $calURL, $user, $pass, "" );
+		$options = $cal->DoOptionsRequest();
+		if ( isset($options["PROPFIND"]) ) {
+			// Fetch some information about the events in that calendar
+			$cal->SetDepth($depth);
+			$folder_xml = $cal->DoXMLRequest("PROPFIND", '<?xml version="1.0" encoding="utf-8" ?><propfind xmlns="DAV:"><prop><getcontentlength/><getcontenttype/><resourcetype/><getetag/></prop></propfind>' );
+		}
 		$cal->SetDepth($depth);
-		$folder_xml = $cal->DoXMLRequest("PROPFIND", '<?xml version="1.0" encoding="utf-8" ?><propfind xmlns="DAV:"><prop><getcontentlength/><getcontenttype/><resourcetype/><getetag/></prop></propfind>' );
+		$events = $cal->GetEvents($start,$end);
 	}
-	$cal->SetDepth($depth);
-	$events = $cal->GetEvents($start,$end);
+	catch (Exception $e) {
+  		echo $e->getMessage();
+	}
+	restore_error_handler();
 }
 //print "$start:$end\n";
 //print_r($events);
@@ -183,18 +253,33 @@ foreach ( $events AS $k => $event ) {
                                 //RRULE vorhanden Tag nächsten Termin suchen
 //print "nächsten Termin finden/n";
                                 $results[$ematch[2]]["RRule"] = $rrule[1];
-                                $nEvent = new RRule( new iCalDate($estart[2]), $rrule[1] );
-                                $date = time();
-                                do {
-                                        $date = $nEvent->GetNext();
-//print date("d.m.Y",$date->_epoch)."\n";
-                                }
-                                while( isset($date) && ($ustart>$date->_epoch+$diff || preg_match("/EXDATE;.*".date("Ymd\THis",$date->_epoch)."/",$event['data'])) );
-                                if ( isset($date) && $uend>=$date->_epoch && ( $results[$ematch[2]]["Start"] == -1 || ($date->_epoch - $datediff) <= $results[$ematch[2]]["Start"])) {
-                                        $results[$ematch[2]]["Start"] = $date->_epoch - $datediff;
+				preg_match_all("/EXDATE.*:(.*)\s/iU",$event['data'],$resExDates, PREG_PATTERN_ORDER);
+				foreach ($resExDates[1] AS $d => $ExDate) {
+					$ExDates[] = $ExDate;
+				}
+				if (preg_match("/RDATE.*:(.*)\s/",$event['data'],$resRDates)) {
+					$RDates = explode(",",$resRDates[1]);
+				}
+				$recurr = new \Recurr\Rule;
+				$recurr->loadFromString(trim($rrule[1]));
+				$recurr->setStartDate(new DateTime($estart[2]));
+				if (isset($ExDates)) $recurr->setExDates($ExDates);
+				if (isset($RDates)) $recurr->setRDates($RDates);
+				$constraint = new \Recurr\Transformer\Constraint\BetweenConstraint(DateTime::createFromFormat("U",$teststart), DateTime::createFromFormat("U",$uend),True);
+				$transformer = new \Recurr\Transformer\ArrayTransformer();
+				$recresult = $transformer->transform($recurr,$constraint);
+				$recresult = $recresult->startsAfter(DateTime::createFromFormat("U",$teststart),true);
+				$iterator = $recresult->getIterator();
+				$iterator->uasort(function ($a, $b) {
+		    			return ($a->getStart() < $b->getStart()) ? -1 : 1;
+				});
+				$recresult = new \Recurr\RecurrenceCollection(iterator_to_array($iterator));
+				if (isset($recresult)) $date = $recresult->first()->getStart();
+			        if (isset($date) && $uend>=$date->getTimestamp() && ( $results[$ematch[2]]["Start"] == -1 || ($date->getTimestamp() - $datediff) <= $results[$ematch[2]]["Start"])) {
+                                        $results[$ematch[2]]["Start"] = $date->getTimestamp() - $datediff;
                                         $results[$ematch[2]]["End"] = $results[$ematch[2]]["Start"] + $diff;
-                                        $results[$ematch[2]]["wkDay"] = date("N",$date->_epoch);
-                                        $results[$ematch[2]]["fwDay"] = date_interval_format(date_diff(new DateTime(date("Y-m-d",$ustart+($delay*60))),new DateTime("@$date->_epoch"),false),"%r%a");
+                                        $results[$ematch[2]]["wkDay"] = date("N",$date->getTimestamp());
+                                        $results[$ematch[2]]["fwDay"] = date_interval_format(date_diff(new DateTime(date("Y-m-d",$ustart+($delay*60))),$date,false),"%r%a");
 	                                $results[$ematch[2]]["Summary"] = $ematch[1];
 	                                if ( preg_match("/DESCRIPTION:([^\r\n]*)/",$event['data'],$desc) ) $results[$ematch[2]]["Desc"] = $desc[1];
                                 }

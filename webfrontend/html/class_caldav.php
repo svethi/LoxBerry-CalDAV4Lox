@@ -202,6 +202,11 @@ class CalDAVClient {
     $rsp = "";
     while( !feof($fip) ) { $rsp .= fgets($fip,8192); }
     fclose($fip);
+    if (preg_match("#HTTP/1\.1 ([1-9])([0-9]{2})(.*)#",$rsp,$res)) {
+    	if ($res[1] != 2) {
+    		echo $res[0];
+    	}
+    }
     $this->headers = array();  // reset the headers array for our next request
     $this->ParseResponse($rsp);
     return $rsp;
