@@ -5,6 +5,7 @@
 * @copyright SD-Thierfelder & Christian Fenzl
 */
 
+$timestart = microtime(true);
 header('Content-Type: text/html; charset=utf-8');
 
 require_once("class_caldav.php");
@@ -54,11 +55,18 @@ $end = gmdate("Ymd\THis\Z",$uend);
 $datediff = mktime(0,0,0,1,1,2009);
 $localTZ = new DateTimeZone(date("e"));
 
+$timeend = microtime(true) - $timestart;
+//echo "$timeend - Start Kalenderabholung\n";
+
 if (preg_match("/google\.com\/calendar/",$calURL)) {
 	//Google Kalender
+	//echo "Google Kalender erkannt\n";
 	$events = array();
 	if( $cache > 0 ) {
 		if(filemtime($myFile) < date("U")-($cache * 60)) {
+			//echo "Cachefile abgelaufen";
+$timeend = microtime(true) - $timestart;
+//echo "$timeend - Lade Kalender von Google";
 			$fh = fopen($myFile, 'w') or die("can't open file");
 			$context = stream_context_create(array(
 				'https' => array(
@@ -81,7 +89,11 @@ if (preg_match("/google\.com\/calendar/",$calURL)) {
 			restore_error_handler();
 			fwrite($fh, $Datei);
 			fclose($fh);
+$timeend = microtime(true) - $timestart;
+//echo "$timeend - Laden des Kalenders beendet.";
 		} else {
+			$timeend = microtime(true) - $timestart;
+			//echo "$timeend - Lade Cachefile";
 			set_error_handler(
     		create_function(
         	'$severity, $message, $file, $line',
@@ -96,6 +108,8 @@ if (preg_match("/google\.com\/calendar/",$calURL)) {
 			}
 
 			restore_error_handler();
+			$timeend = microtime(true) - $timestart;
+			//echo "$timeend - Cachefile geladen.";
 		}
 	} else {
 		$context = stream_context_create(array(
@@ -117,8 +131,13 @@ if (preg_match("/google\.com\/calendar/",$calURL)) {
 
 			restore_error_handler();
 	}
+	$timeend = microtime(true) - $timestart;
+	//echo "$timeend - Beginne mit Eintragssplitting\n";
 	preg_match_all("/(BEGIN:VEVENT.*END:VEVENT)/isU",$Datei,$gevents, PREG_PATTERN_ORDER);
 	foreach ( $gevents[1] AS $e => $event ) {
+		if (preg_match("/SUMMARY:(.*($search)[^\r\n]*)/",$event,$ematch)) { 
+		$countevents +=1;
+
 		$teststart = $ustart;
 		if(preg_match("/DTSTART;.*TZID=(.*);(VALUE=DATE):(.*)\b/",$event,$estart)) {
 			$teststart = $vdstart;
@@ -150,6 +169,8 @@ if (preg_match("/google\.com\/calendar/",$calURL)) {
 		$diff = date_format($eend,"U") - date_format($estart,"U");
 		if (preg_match("/RRULE:(.*)/",$event,$rrule)) {
 			//Wiederholungen testen
+			$timeend = microtime(true) - $timestart;
+			//echo "$timeend - Wiederholung gefunden, RRULE starten.\n";
 			preg_match_all("/EXDATE.*:(.*)\s/iU",$event,$resExDates, PREG_PATTERN_ORDER);
 			foreach ($resExDates[1] AS $d => $ExDate) {
 				$ExDates[] = $ExDate;
@@ -162,7 +183,7 @@ if (preg_match("/google\.com\/calendar/",$calURL)) {
 			$recurr->setStartDate($estart);
 			if (isset($ExDates)) $recurr->setExDates($ExDates);
 			if (isset($RDates)) $recurr->setRDates($RDates);
-			$constraint = new \Recurr\Transformer\Constraint\BetweenConstraint(DateTime::createFromFormat("U",$teststart), DateTime::createFromFormat("U",$uend),True);
+			//$constraint = new \Recurr\Transformer\Constraint\BetweenConstraint(DateTime::createFromFormat("U",$teststart), DateTime::createFromFormat("U",$uend),True);
 			$transformer = new \Recurr\Transformer\ArrayTransformer();
 			$recresult = $transformer->transform($recurr,$constraint);
 			$recresult = $recresult->startsAfter(DateTime::createFromFormat("U",$teststart),true);
@@ -181,8 +202,11 @@ if (preg_match("/google\.com\/calendar/",$calURL)) {
 				$event = preg_replace("/DTEND.*/","DTEND;TZID=".date("e").":".date("Ymd\THis",$date->getTimestamp() + $diff),$event);
 				$events[]['data']=$event;
 			}
+			$timeend = microtime(true) - $timestart;
+			//echo "$timeend - RRULE ausgeführt\n";
 		} elseif ( date_format($eend, "U") >= $ustart  && date_format($estart, "U") <= $uend ) {
                         $events[]['data']=$event;
+		}
 		}
 	}
 } else {
@@ -300,6 +324,8 @@ foreach ( $events AS $k => $event ) {
 }
 echo "{\n";
 
+$timeend = microtime(true) - $timestart;
+//echo "$timeend - Daten ausgeben.\n";
 foreach ( $sevents AS $k => $event ) {
 	$tmp = $results[$event];
 	echo "\t\"$event\": {\n";
@@ -320,4 +346,6 @@ foreach ( $sevents AS $k => $event ) {
 if (isset($debug)) echo "\t\"hnow\": \"".date("d.m.Y H:i:s")."\",\n";
 echo "\t\"now\": ".(time()-$datediff+date("I")*3600)."\n";
 echo "}\n";
+$timeend = microtime(true) - $timestart;
+//echo "$timeend - Script beendet, $countevents Kalendereinträge.\n";
 ?>
