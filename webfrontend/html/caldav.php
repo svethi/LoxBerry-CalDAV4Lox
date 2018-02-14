@@ -89,7 +89,7 @@ if (preg_match("/google\.com\/calendar/",$calURL)) {
    	 		)
 			);
 			try {
-				$Datei = file_get_contents($calURL, false, $context);
+				$Datei = file_get_contents($myFile);
 			}
 			catch (Exception $e) {
     		echo $e->getMessage();
@@ -171,7 +171,10 @@ if (preg_match("/google\.com\/calendar/",$calURL)) {
 		   	 return ($a->getStart() < $b->getStart()) ? -1 : 1;
 			});
 			$recresult = new \Recurr\RecurrenceCollection(iterator_to_array($iterator));
-			if (isset($recresult)) $date = $recresult->first()->getStart();
+			if (isset($recresult)) {
+				$fdate = $recresult->first();
+				if ($fdate) $date=$fdate->getStart();
+			}
 			if (isset($date) && $uend>=$date->getTimestamp()) {
 				$event = preg_replace("/RRULE:.*[\n]/","",$event);
 				$event = preg_replace("/DTSTART.*/","DTSTART;TZID=".date("e").":".date_format($date,"Ymd\THis"),$event);
