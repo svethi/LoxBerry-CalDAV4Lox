@@ -53,6 +53,12 @@ $uend = mktime(date("H"),date("i")+$delay,date("s"),date("m"),date("d")+$fwdays,
 $end = gmdate("Ymd\THis\Z",$uend);
 
 $datediff = mktime(0,0,0,1,1,2009);
+//echo $datediff,"\n";
+$dst_offset = getDSTOffset(2009);
+//echo $dst_offset,"\n";
+if (date("I",$datediff) == 1) $datediff += $dst_offset;
+//echo $datediff,"\n";
+
 $localTZ = new DateTimeZone(date("e"));
 
 $timeend = microtime(true) - $timestart;
@@ -333,9 +339,10 @@ foreach ( $sevents AS $k => $event ) {
                 echo "\t\t\"hStart\": \"".date("d.m.Y H:i:s",$tmp["Start"]+$datediff)."\",\n";
                 echo "\t\t\"hEnd\": \"".date("d.m.Y H:i:s",$tmp["End"]+$datediff)."\",\n";
         }
-	//patch for localtime timestamp for the MiniServer
-	$tmp["Start"] += date("I",$tmp["Start"]+$datediff)*3600;
-	$tmp["End"] += date("I",$tmp["End"]+$datediff)*3600;
+	//handle dst
+	$dst_offset = getDSTOffset(date("Y",$tmp["Start"]+$datediff));
+	$tmp["Start"] += date("I",$tmp["Start"]+$datediff)*$dst_offset;
+	$tmp["End"] += date("I",$tmp["End"]+$datediff)*$dst_offset;
 	echo "\t\t\"Start\": ".$tmp["Start"].",\n";
 	echo "\t\t\"End\": ".$tmp["End"].",\n";
 	echo "\t\t\"Summary\": \"".str_replace('\,',',',$tmp["Summary"])."\",\n";
@@ -344,8 +351,35 @@ foreach ( $sevents AS $k => $event ) {
 	echo "\t\t\"wkDay\": ".$tmp["wkDay"]."\n\t},\n";
 }
 if (isset($debug)) echo "\t\"hnow\": \"".date("d.m.Y H:i:s")."\",\n";
-echo "\t\"now\": ".(time()-$datediff+date("I")*3600)."\n";
+$dst_offset = getDSTOffset(date("Y"));
+echo "\t\"now\": ".(time()-$datediff+date("I")*$dst_offset)."\n";
 echo "}\n";
 $timeend = microtime(true) - $timestart;
 //echo "$timeend - Script beendet, $countevents Kalendereinträge.\n";
+
+function getDSTOffset($year = NULL) {
+
+if (is_null($year)) $year = date("Y");
+$timezone = new DateTimeZone(date("e"));
+$transitions = $timezone->getTransitions(mktime(0,0,0,1,1,$year),mktime(0,0,0,12,30,$year));
+
+foreach ($transitions as $transition) {
+	if ($transition["isdst"] == 1 && !isset($dst_offset)) {
+		$dst_offset = $transition["offset"];
+	}
+	if ($transition["isdst"] == 0 && !isset($st_offset)) {
+		$st_offset = $transition["offset"];
+	}
+}
+if (!isset($st_offset)) $st_offset = date("Z");
+
+if (isset($dst_offset)) {
+	$dst_offset -= $st_offset;
+} else {
+	$dst_offset = 0;
+}
+
+return $dst_offset;
+
+}
 ?>
