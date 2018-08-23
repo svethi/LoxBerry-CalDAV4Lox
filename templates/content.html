@@ -22,7 +22,7 @@ function setDepth(selobject)
     }
     document.getElementById("labeldepth").innerHTML="Depth:";
     newdepth = selobject.options[selobject.selectedIndex].value;
-    xmlhttp.open("GET","/admin/plugins/<!--$psubfolder-->/setDepth.cgi?depth=" + newdepth,true);
+    xmlhttp.open("GET","/admin/plugins/<TMPL_VAR psubfolder>/setDepth.cgi?depth=" + newdepth,true);
     xmlhttp.send();
 }
 </script>
@@ -31,7 +31,7 @@ function setDepth(selobject)
 <div class=\"ui-body ui-body-a ui-corner-all loxberry-logo\">
 <div style=\"margin: 5%;\">
 
-<h2>Einstellungen</h2>
+<h2><TMPL_VAR HEADER.SETTINGS></h2>
 									<form method="post" data-ajax="false" name="main_form" id="main_form" action="./index.cgi">
 											<div class="form-group">
 												<table class="formtable" border="0" width="100%">
@@ -41,8 +41,8 @@ function setDepth(selobject)
 														</td>
 														<td>
 																<select id="depth" name="depth" data-mini="true" onchange="setDepth(this);">
-																	<option <!--$selecteddepth0--> value="0">0</option>
-																	<option <!--$selecteddepth1--> value="1">1</option>
+																	<option <TMPL_VAR selecteddepth0> value="0">0</option>
+																	<option <TMPL_VAR selecteddepth1> value="1">1</option>
 																</select>
 														</td>
 														<td width="65%">&nbsp;</td>
@@ -50,19 +50,19 @@ function setDepth(selobject)
 											</table>
 										</div>
 									</form>
-<h2>Einrichtungshilfe</h2>
-<p>Die folgenden Einstellungen erstellen die im virtuellen HTTP-Eingang nötige URL. Des Weiteren kann von hier aus die Kalenderabfrage und Rückgabe getestet werden.</p>
+<h2><TMPL_VAR HEADER.CONFIGHINTS></h2>
+<p><TMPL_VAR LABEL.HINTINTRO></p>
 									<form method="post" data-ajax="false" name="main_form" id="main_form" action="./index.cgi">
-										<input type="hidden" id="lang" name="lang" value="<!--$lang-->">
+										<input type="hidden" id="lang" name="lang" value="<TMPL_VAR lang>">
 											<div class="form-group">
 												<table class="formtable" border="0" width="100%">
 													<tr>
 														<td width="25%">
-															<label id="labelcaldavurl">Link zum Kalender:</label>
+															<label id="labelcaldavurl"><TMPL_VAR LABEL.LINKFORCAL></label>
 														</td>
 														<td width="50%" colspan="2">
 															<input id="caldavurl" name="caldavurl" type="text" class="textfield" data-validation="url"
-																value="<!--$caldavurl-->" data-validation-error-msg="* Bitte eine gültige URL angeben">
+																value="<TMPL_VAR caldavurl>" data-validation-error-msg="* <TMPL_VAR ERROR.WRONGCALURL>">
 														</td>
 														<td width="25%">
 															&nbsp;
@@ -70,11 +70,11 @@ function setDepth(selobject)
 													</tr>
 													<tr>
 														<td width="25%">
-															<label id="labelcaldavuser">Kalender-User:</label>
+															<label id="labelcaldavuser"><TMPL_VAR LABEL.CALUSER></label>
 														</td>
 														<td width="50%" colspan="2">
 															<input id="caldavuser" name="caldavuser" type="text" class="textfield"
-																value="<!--$caldavuser-->" data-validation-error-msg="* Bitte einen Benutzernamen angeben">
+																value="<TMPL_VAR caldavuser>" data-validation-error-msg="* <TMPL_VAR ERROR.MISSINGUSER>">
 														</td>
 														<td width="25%">
 															&nbsp;
@@ -82,11 +82,11 @@ function setDepth(selobject)
 													</tr>
 													<tr>
 														<td width="25%">
-															<label id="labelcaldavpass">Passwort des Kalender-Users:</label>
+															<label id="labelcaldavpass"><TMPL_VAR LABEL.CALPASS></label>
 														</td>
 														<td width="50%" colspan="2">
 															<input id="caldavpass" name="caldavpass" type="text" class="textfield"
-																value="<!--$caldavpass-->" data-validation-error-msg="* Bitte ein Passwort angeben">
+																value="<TMPL_VAR caldavpass>" data-validation-error-msg="* <TMPL_VAR ERROR.MISSINGPASS>">
 														</td>
 														<td width="25%">
 															&nbsp;
@@ -94,11 +94,11 @@ function setDepth(selobject)
 													</tr>
 													<tr>
 														<td width="25%">
-															<label id="labelfwdays">Tage in der Zukunft:</label>
+															<label id="labelfwdays"><TMPL_VAR LABEL.DAYSINFUTURE></label>
 														</td>
 														<td width="10%">
 															<input id="fwdays" name="fwdays" type="text" class="textfield" data-validation="number" data-validation-optional="true" data-validation-allowing="range[0;364]"
-																value="<!--$fwdays-->" data-validation-error-msg="* Bitte eine Zahl zwischen 0 und 364 angeben" width="10%">
+																value="<TMPL_VAR fwdays>" data-validation-error-msg="* <TMPL_VAR ERROR.DAYSINFUTURE>" width="10%">
 														</td>
 														<td width="40%" valign="middle">
 															&nbsp;
@@ -109,11 +109,11 @@ function setDepth(selobject)
 													</tr>
 													<tr>
 														<td width="25%">
-															<label id="labeldelay">Minuten vor und nach:</label>
+															<label id="labeldelay"><TMPL_VAR LABEL.MINUTESBEFOREANDAFTER></label>
 														</td>
 														<td width="10%">
 															<input id="delay" name="delay" type="text" class="textfield" data-validation="number" data-validation-optional="true" data-validation-allowing="range[0;1440]"
-																value="<!--$delay-->" data-validation-error-msg="* Bitte eine Zahl zwischen 0 und 1440 angeben" width="10%">
+																value="<TMPL_VAR delay>" data-validation-error-msg="* <TMPL_VAR ERROR.MINUTESBEFOREANDAFTER>" width="10%">
 														</td>
 														<td width="40%" valign="middle">
 															&nbsp;
@@ -124,11 +124,11 @@ function setDepth(selobject)
 													</tr>
 													<tr>
 														<td width="25%">
-															<label id="labeldelay">Google Cachedauer:</label>
+															<label id="labeldelay"><TMPL_VAR LABEL.GOOGLECACHE></label>
 														</td>
 														<td width="10%">
 															<input id="cache" name="cache" type="text" class="textfield" data-validation="number" data-validation-optional="true" data-validation-allowing="range[0;1440]"
-																value="<!--$cache-->" data-validation-error-msg="* Bitte eine Zahl zwischen 0 und 1440 angeben" width="10%">
+																value="<TMPL_VAR cache>" data-validation-error-msg="* <TMPL_VAR ERROR.GOOGLECACHE>" width="10%">
 														</td>
 														<td width="40%" valign="middle">
 															&nbsp;
@@ -139,10 +139,10 @@ function setDepth(selobject)
 													</tr>
 													<tr>
 														<td width="25%">
-															<label id="labelevents">Suchbegriffe</label>
+															<label id="labelevents"><TMPL_VAR LABEL.SEARCHTERMS></label>
 														</td>
 														<td width="50%" colspan="2">
-															<textarea id="events" name="events" class="textfield"><!--$events--></textarea>
+															<textarea id="events" name="events" class="textfield"><TMPL_VAR events></textarea>
 														</td>
 														<td width="25%">
 															&nbsp;
@@ -151,7 +151,7 @@ function setDepth(selobject)
 													<tr>
 														<td width="25%">&nbsp</td>
 														<td width="50%" colspan="2">
-															<input id="dotest" name="dotest" type="submit" value="Angaben testen">
+															<input id="dotest" name="dotest" type="submit" value="<TMPL_VAR LABEL.DOTEST>">
 														</td>		
 														<td width="25%">
 															&nbsp

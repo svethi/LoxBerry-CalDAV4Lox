@@ -7,21 +7,15 @@
 #   * and showing a message to the user.
 # That's all.
 
-use File::HomeDir;
+use LoxBerry::Web;
+use LoxBerry::Log;
 use CGI qw/:standard/;
-use Config::Simple;
-use Cwd 'abs_path';
-use IO::Socket::INET;
 use warnings;
 use strict;
 no strict "refs"; # we need it for template system
 
-my  $home = File::HomeDir->my_home;
-our $lang;
-my  $installfolder;
 my  $cfg;
 my  $conf;
-our $psubfolder;
 our $selecteddepth0 = "";
 our $selecteddepth1 = "";
 my  $curl;
@@ -35,25 +29,31 @@ our $events;
 our $dotest;
 our $helptext;
 our $helplink;
+our $helptemplate;
 our $template_title;
 our $namef;
 our $value;
 our %query;
 our $do;
-our $phrase;
-our $phraseplugin;
-our $languagefile;
-our $languagefileplugin;
 our $cache;
 
+my $log = LoxBerry::Log->new (
+        name => 'cronjob',
+        filename => "$lbplogdir/mylogfile.log",
+        append => 1,
+        addtime => 1
+);
+LOGSTART "start CalDAV-4-Lox configuration helper";
+LOGDEB "LoxBerry Version: ".LoxBerry::System::lbversion();
+LOGDEB "Plugin Version: ".LoxBerry::System::pluginversion();
+
+LOGDEB "Read system settings";
 # Read Settings
-$cfg             = new Config::Simple("$home/config/system/general.cfg");
-$installfolder   = $cfg->param("BASE.INSTALLFOLDER");
-$lang            = $cfg->param("BASE.LANG");
+$cfg             = new Config::Simple("$lbsconfigdir/general.cfg");
 $curl            = $cfg->param("BINARIES.CURL");
+LOGDEB "Done";
 
-print "Content-Type: text/html\n\n";
-
+LOGDEB "retrieve values from URL";
 # Everything from URL
 foreach (split(/&/,$ENV{'QUERY_STRING'}))
 {
@@ -66,7 +66,6 @@ foreach (split(/&/,$ENV{'QUERY_STRING'}))
 }
 
 # Set parameters coming in - get over post
-	if ( !$query{'lang'} )         { if ( param('lang')         ) { $lang         = quotemeta(param('lang'));         } else { $lang         = $lang;  } } else { $lang         = quotemeta($query{'lang'});         }
 	if ( !$query{'do'} )           { if ( param('do')           ) { $do           = quotemeta(param('do'));           } else { $do           = "form"; } } else { $do           = quotemeta($query{'do'});           }
 	if ( !$query{'caldavurl'} )    { if ( param('caldavurl')    ) { $caldavurl    = param('caldavurl');               } else { $caldavurl    = "";     } } else { $caldavurl    = $query{'caldavurl'};               }
 	if ( !$query{'caldavuser'} )   { if ( param('caldavuser')   ) { $caldavuser   = param('caldavuser');              } else { $caldavuser   = "";     } } else { $caldavuser   = $query{'caldavuser'};              }
@@ -76,69 +75,58 @@ foreach (split(/&/,$ENV{'QUERY_STRING'}))
 	if ( !$query{'events'} )       { if ( param('events')       ) { $events       = param('events');                  } else { $events       = "";     } } else { $events       = $query{'events'};                  }
 	if ( !$query{'dotest'} )       { if ( param('dotest')       ) { $dotest       = param('dotest');                  } else { $dotest       = "";     } } else { $dotest       = $query{'dotest'};                  }
   if ( !$query{'cache'} )        { if ( param('cache')        ) { $cache        = param('cache');                   } else { $cache        = "";     } } else { $cache        = $query{'cache'};                   }
+LOGDEB "Done";
 
-# Figure out in which subfolder we are installed
-
-$psubfolder = abs_path($0);
-$psubfolder =~ s/(.*)\/(.*)\/(.*)$/$2/g;
-
+LOGDEB "read CalDAV-4-Lox settings";
 # read caldav4lox configs
-$conf = new Config::Simple("$home/config/plugins/$psubfolder/caldav4lox.conf");
+$conf = new Config::Simple("$lbpconfigdir/caldav4lox.conf");
 $depth = $conf->param('general.Depth');
+LOGDEB "Done";
 if ( $depth == 0 ) {$selecteddepth0="selected"} else { $selecteddepth1="selected"}
 
-# Init Language
-	# Clean up lang variable
-	$lang         =~ tr/a-z//cd; $lang         = substr($lang,0,2);
-  # If there's no language phrases file for choosed language, use german as default
-		if (!-e "$installfolder/templates/system/$lang/language.dat") 
-		{
-  		$lang = "de";
-	}
-	# Read translations / phrases
-		$languagefile 			= "$installfolder/templates/system/$lang/language.dat";
-		$phrase 						= new Config::Simple($languagefile);
-		$languagefileplugin = "$installfolder/templates/plugins/$psubfolder/$lang/language.dat";
-		$phraseplugin 			= new Config::Simple($languagefileplugin);
+LOGDEB "retrieve the local ip";
+my $localip = LoxBerry::System::get_localip();
+LOGDEB "Done";
 
-# Get Local IP and GW IP
-my $sock = IO::Socket::INET->new(
-                       PeerAddr=> "example.com",
-                       PeerPort=> 80,
-                       Proto   => "tcp");
-my $localip = $sock->sockhost;
-
+LOGDEB "retrieve the defaul gateway";
 my $gw = `netstat -nr`;
 $gw =~ m/0.0.0.0\s+([0-9]+.[0-9]+.[0-9]+.[0-9]+)/g;
 my $gwip = $1;
+LOGDEB "Done";
 
+LOGDEB "create the page - beginn";
 # Title
-$template_title = $phrase->param("TXT0000") . ": CalDAV-4-Lox";
-
+$template_title = "CalDAV-4-Lox";
 # Create help page
 $helplink = "http://www.loxwiki.eu/display/LOXBERRY/CalDAV-4-Lox";
-open(F,"$installfolder/templates/plugins/$psubfolder/$lang/help.html") || die "Missing template $lang/help.html";
-  while (<F>) {
-    $_ =~ s/<!--\$(.*?)-->/${$1}/g;
-    $helptext .= $_;
-  }
-close(F);
+$helptemplate = "help.html";
+LOGDEB "print out the header";
+LoxBerry::Web::lbheader(undef,$helplink,$helptemplate);
 
-# Load header and replace HTML Markup <!--$VARNAME--> with perl variable $VARNAME
-open(F,"$installfolder/templates/system/$lang/header.html") || die "Missing template system/$lang/header.html";
-  while (<F>) {
-    $_ =~ s/<!--\$(.*?)-->/${$1}/g;
-    print $_;
-  }
-close(F);
-
+LOGDEB "create the content";
 # Load content from template
-open(F,"$installfolder/templates/plugins/$psubfolder/$lang/content.html") || die "Missing template $lang/content.html";
-  while (<F>) {
-    $_ =~ s/<!--\$(.*?)-->/${$1}/g;
-    print $_;
-  }
-close(F);
+my $maintemplate = HTML::Template->new(
+    filename => "$lbptemplatedir/content.html",
+    global_vars => 1,
+    loop_context_vars => 1,
+    die_on_bad_params => 0,
+);
+$maintemplate->param("psubfolder",$lbpplugindir);
+$maintemplate->param("selecteddepth0", $selecteddepth0);
+$maintemplate->param("selecteddepth1", $selecteddepth1);
+$maintemplate->param("lang",lblanguage());
+$maintemplate->param("caldavurl",$caldavurl);
+$maintemplate->param("caldavuser",$caldavuser);
+$maintemplate->param("caldavpas",$caldavpass);
+$maintemplate->param("fwdays",$fwdays);
+$maintemplate->param("delay",$delay);
+$maintemplate->param("cache",$cache);
+$maintemplate->param("events",$events);
+
+%L = LoxBerry::System::readlanguage($maintemplate, "language.ini");
+  
+print $maintemplate->output;
+
 if ( $caldavurl =~ m{
     (
         (ftp|https?):\/\/
@@ -157,35 +145,36 @@ if ( $caldavurl =~ m{
         (\#[a-z0-9\.\-_/\+\%&;\:,\=\!@\(\)\[\]~]*)?
     )
 }gisx) {
+	LOGINF "URL was given, generate answer";
 	my $tempcalurl = $caldavurl; 
 	$tempcalurl =~ s/\:/\%3A/g;
 	my $tempevents = $events;
 	$tempevents =~ s/\n/\|/g;
 	$tempevents =~ s/\r//g;
 	$tempevents =~ s/ //g;
-	my $tempURL = "http://$localip/plugins/$psubfolder/caldav.php?calURL=$tempcalurl&user=$caldavuser&pass=$caldavpass";
+	my $tempURL = "http://$localip/plugins/$lbpplugindir/caldav.php?calURL=$tempcalurl&user=$caldavuser&pass=$caldavpass";
 	if ( $fwdays ) { if (($fwdays > 0) && ($fwdays < 364)) {$tempURL .= "&fwdays=$fwdays";}}
   if ( $delay ) { if (($delay > 0) && ($fwdays < 1440)) {$tempURL.= "&delay=$delay";}}
   if ( $cache ) { if (($cache > 0) && ($cache < 1440)) {$tempURL.= "&cache=$cache";}}
 	$tempURL .= "&events=$tempevents";
-	print "<p>". $phraseplugin->param("TXT0006") . ": <a href=$tempURL target='_blank'>$tempURL</a></p>\n";
+	print "<p>". $L{"LABEL.TXT0006"} . ": <a href=$tempURL target='_blank'>$tempURL</a></p>\n";
+	LOGDEB "test the calendar";
 	my $test = `$curl '$tempURL'`;
 	print "<p><pre class=\"textfield\">$test</pre></p>";
-	print "<p>" . $phraseplugin->param("TXT0000") . ":\n";
+	LOGDEB "Done";
+	if ($test eq "") {LOGWARN "no answer from curl"}
+	print "<p>" . $L{"LABEL.TXT0000"} . ":\n";
 	if ($tempevents eq "") {print "<p></p>\n";}
 	foreach (split(/\|/,$tempevents))
 	{
-		print "<p>$_:</ br><ul style=\"display: table;\">\n<li style=\"display: table-row;\"><div style=\"width: 15%; display: table-cell;\">" . $phraseplugin->param("TXT0001") . "</div>: <span style=\"background-color: #cccccc\">$_\": {\\i\"Start\"\\i: \\v</span></li>\n<li style=\"display: table-row;\"><div style=\"width: 15%; display: table-cell;\">" . $phraseplugin->param("TXT0002") . "</div>: <span style=\"background-color: #cccccc\">$_\": {\\i\"End\"\\i: \\v</span></li>\n<li style=\"display: table-row;\"><div style=\"width: 15%; display: table-cell;\">" . $phraseplugin->param("TXT0003") . "</div>: <span style=\"background-color: #cccccc\">$_\": {\\i\"fwDay\"\\i: \\v</span></li>\n<li style=\"display: table-row;\"><div style=\"width: 15%; display: table-cell;\">" . $phraseplugin->param("TXT0004") . "</div>: <span style=\"background-color: #cccccc\">$_\": {\\i\"wkDay\"\\i: \\v</span></li>\n</ul></p>";
+	print "<p>$_:</ br><ul style=\"display: table;\">\n<li style=\"display: table-row;\"><div style=\"width: 15%; display: table-cell;\">" . $L{"LABEL.TXT0001"} . "</div>: <span style=\"background-color: #cccccc\">$_\": {\\i\"Start\"\\i: \\v</span></li>\n<li style=\"display: table-row;\"><div style=\"width: 15%; display: table-cell;\">" . $L{"LABEL.TXT0002"} . "</div>: <span style=\"background-color: #cccccc\">$_\": {\\i\"End\"\\i: \\v</span></li>\n<li style=\"display: table-row;\"><div style=\"width: 15%; display: table-cell;\">" . $L{"LABEL.TXT0003"} . "</div>: <span style=\"background-color: #cccccc\">$_\": {\\i\"fwDay\"\\i: \\v</span></li>\n<li style=\"display: table-row;\"><div style=\"width: 15%; display: table-cell;\">" . $L{"LABEL.TXT0004"} . "</div>: <span style=\"background-color: #cccccc\">$_\": {\\i\"wkDay\"\\i: \\v</span></li>\n</ul></p>";
 	}
-	print $phraseplugin->param("TXT0005") . ": <span style=\"background-color: #cccccc\">\"now\": \\v</span></p>\n";
+	print $L{"LABEL.TXT0005"} . ": <span style=\"background-color: #cccccc\">\"now\": \\v</span></p>\n";
 }
 
+LOGDEB "print out the footer";
 # Load footer and replace HTML Markup <!--$VARNAME--> with perl variable $VARNAME
-open(F,"$installfolder/templates/system/$lang/footer.html") || die "Missing template system/$lang/header.html";
-  while (<F>) {
-    $_ =~ s/<!--\$(.*?)-->/${$1}/g;
-    print $_;
-  }
-close(F);
+LoxBerry::Web::lbfooter();
+LOGEND "Done";
 
 exit;
