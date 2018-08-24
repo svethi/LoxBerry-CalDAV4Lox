@@ -10,6 +10,7 @@ header('Content-Type: text/html; charset=utf-8');
 
 require_once("class_caldav.php");
 require __DIR__ . '/vendor/autoload.php';
+require_once "loxberry_system.php";
 
 use Recurr\Rule;
 
@@ -33,10 +34,10 @@ $home = $home['dir'];
 $psubfolder = __FILE__;
 $psubfolder = preg_replace('/(.*)\/(.*)\/(.*)$/',"$2", $psubfolder);
 
-$myFile = "$home/data/plugins/$psubfolder/caldav_".MD5($calURL).".ical";
+$myFile = "$lbpdatadir/caldav_".MD5($calURL).".ical";
 
 //Get depth from conffile
-$caldavconf = parse_ini_file("$home/config/plugins/$psubfolder/caldav4lox.conf");
+$caldavconf = parse_ini_file("$lbpconfigdir/caldav4lox.conf");
 
 $depth = $caldavconf['Depth'];
 
