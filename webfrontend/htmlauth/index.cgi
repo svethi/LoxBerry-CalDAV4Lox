@@ -117,7 +117,7 @@ $maintemplate->param("selecteddepth1", $selecteddepth1);
 $maintemplate->param("lang",lblanguage());
 $maintemplate->param("caldavurl",$caldavurl);
 $maintemplate->param("caldavuser",$caldavuser);
-$maintemplate->param("caldavpas",$caldavpass);
+$maintemplate->param("caldavpass",$caldavpass);
 $maintemplate->param("fwdays",$fwdays);
 $maintemplate->param("delay",$delay);
 $maintemplate->param("cache",$cache);

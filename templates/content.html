@@ -61,7 +61,7 @@ function setDepth(selobject)
 															<label id="labelcaldavurl"><TMPL_VAR LABEL.LINKFORCAL></label>
 														</td>
 														<td width="50%" colspan="2">
-															<input id="caldavurl" name="caldavurl" type="text" class="textfield" data-validation="url"
+															<input id="caldavurl" name="caldavurl" type="text" class="textfield" data-validation-rule="special:url"
 																value="<TMPL_VAR caldavurl>" data-validation-error-msg="* <TMPL_VAR ERROR.WRONGCALURL>">
 														</td>
 														<td width="25%">
@@ -97,7 +97,7 @@ function setDepth(selobject)
 															<label id="labelfwdays"><TMPL_VAR LABEL.DAYSINFUTURE></label>
 														</td>
 														<td width="10%">
-															<input id="fwdays" name="fwdays" type="text" class="textfield" data-validation="number" data-validation-optional="true" data-validation-allowing="range[0;364]"
+															<input id="fwdays" name="fwdays" type="text" class="textfield" data-validation-rule="special:number-min-max-value:0:364"
 																value="<TMPL_VAR fwdays>" data-validation-error-msg="* <TMPL_VAR ERROR.DAYSINFUTURE>" width="10%">
 														</td>
 														<td width="40%" valign="middle">
@@ -112,7 +112,7 @@ function setDepth(selobject)
 															<label id="labeldelay"><TMPL_VAR LABEL.MINUTESBEFOREANDAFTER></label>
 														</td>
 														<td width="10%">
-															<input id="delay" name="delay" type="text" class="textfield" data-validation="number" data-validation-optional="true" data-validation-allowing="range[0;1440]"
+															<input id="delay" name="delay" type="text" class="textfield" data-validation-rule="special:number-min-max-value:0:1440"
 																value="<TMPL_VAR delay>" data-validation-error-msg="* <TMPL_VAR ERROR.MINUTESBEFOREANDAFTER>" width="10%">
 														</td>
 														<td width="40%" valign="middle">
@@ -127,7 +127,7 @@ function setDepth(selobject)
 															<label id="labeldelay"><TMPL_VAR LABEL.GOOGLECACHE></label>
 														</td>
 														<td width="10%">
-															<input id="cache" name="cache" type="text" class="textfield" data-validation="number" data-validation-optional="true" data-validation-allowing="range[0;1440]"
+															<input id="cache" name="cache" type="text" class="textfield" data-validation-rule="special:number-min-max-value:0:1440"
 																value="<TMPL_VAR cache>" data-validation-error-msg="* <TMPL_VAR ERROR.GOOGLECACHE>" width="10%">
 														</td>
 														<td width="40%" valign="middle">
@@ -172,6 +172,14 @@ function setDepth(selobject)
 			modules : 'security',
 			errorMessagePosition : $messages,
 		});
+		$( document ).ready(function()
+    {
+        validate_enable('#caldavurl');
+        validate_enable('#fwdays');
+        validate_enable('#delay');
+        validate_enable('#cache')
+        validate_chk_object(['#caldavurl']);
+    });
 </script>
 </div>
 </div>
