@@ -156,13 +156,16 @@ function setDepth(selobject)
 														<td width="25%">
 															&nbsp
 														</td>
-													</tr>	
+													</tr>
 													<tr>
-														<td></td>
-														<td colspan=3>
-														<div id="form-error-message" class="form-error-message"></div>
-													</td>
-												</tr>
+														<td width="25%">&nbsp</td>
+														<td width="50%" colspan="2">
+															<button onclick="window.open('/admin/system/tools/logfile.cgi?logfile=<TMPL_VAR logdir>/caldav4lox.log&amp;header=html&amp;format=template', 'log'); return false;"><TMPL_VAR LABEL.SHOWLOG></button>
+														</td>
+														<td width="25%">
+															&nbsp;
+														</td>
+													</tr>
 											</table>
 										</div>
 									</form>

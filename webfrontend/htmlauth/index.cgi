@@ -38,8 +38,8 @@ our $do;
 our $cache;
 
 my $log = LoxBerry::Log->new (
-        name => 'cronjob',
-        filename => "$lbplogdir/mylogfile.log",
+        name => 'caldav4lox',
+        filename => "$lbplogdir/caldav4lox.log",
         append => 1,
         addtime => 1
 );
@@ -122,6 +122,7 @@ $maintemplate->param("fwdays",$fwdays);
 $maintemplate->param("delay",$delay);
 $maintemplate->param("cache",$cache);
 $maintemplate->param("events",$events);
+$maintemplate->param("logdir",$lbplogdir);
 
 %L = LoxBerry::System::readlanguage($maintemplate, "language.ini");
   
@@ -160,9 +161,14 @@ if ( $caldavurl =~ m{
 	print "<p>". $L{"LABEL.TXT0006"} . ": <a href=$tempURL target='_blank'>$tempURL</a></p>\n";
 	LOGDEB "test the calendar";
 	my $test = `$curl '$tempURL'`;
+	if ($test eq "") {LOGERR "no answer from curl";}
+	if ($test =~ m{HTTP/[0-9]\.[0-9][ ]?([4-5][0-9][0-9])}) {
+		LOGERR "calendar returns an error";
+		LOGDEB "$test";
+		$test = "";	
+	}
 	print "<p><pre class=\"textfield\">$test</pre></p>";
 	LOGDEB "Done";
-	if ($test eq "") {LOGWARN "no answer from curl"}
 	print "<p>" . $L{"LABEL.TXT0000"} . ":\n";
 	if ($tempevents eq "") {print "<p></p>\n";}
 	foreach (split(/\|/,$tempevents))
