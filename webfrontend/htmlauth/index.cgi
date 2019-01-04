@@ -43,9 +43,7 @@ my $log = LoxBerry::Log->new (
         append => 1,
         addtime => 1
 );
-LOGSTART "start CalDAV-4-Lox configuration helper";
-LOGDEB "LoxBerry Version: ".LoxBerry::System::lbversion();
-LOGDEB "Plugin Version: ".LoxBerry::System::pluginversion();
+LOGSTART "CalDAV-4-Lox configuration helper";
 
 LOGDEB "Read system settings";
 # Read Settings
@@ -85,13 +83,16 @@ LOGDEB "Done";
 if ( $depth == 0 ) {$selecteddepth0="selected"} else { $selecteddepth1="selected"}
 
 LOGDEB "retrieve the local ip";
+require IO::Socket::INET;
 my $localip = LoxBerry::System::get_localip();
+LOGDEB "localIP: $localip";
 LOGDEB "Done";
 
 LOGDEB "retrieve the defaul gateway";
 my $gw = `netstat -nr`;
 $gw =~ m/0.0.0.0\s+([0-9]+.[0-9]+.[0-9]+.[0-9]+)/g;
 my $gwip = $1;
+LOGDEB "gateway: $gwip";
 LOGDEB "Done";
 
 LOGDEB "create the page - beginn";
