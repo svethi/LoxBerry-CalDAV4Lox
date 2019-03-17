@@ -25,6 +25,22 @@ $search = @($_GET["events"]);
 $delay = @($_GET["delay"]);
 $debug = @($_GET["debug"]);
 $cache = @($_GET["cache"]);
+$mqttpretopic = "caldav4lox/";
+
+$mqttplugin = LBSystem::plugindata("mqttgateway");
+if ($mqttplugin) {
+	$mqttplugin = $mqttplugin['PLUGINDB_FOLDER'];
+	$mqttcfg = file_get_contents("$lbhomedir/config/plugins/$mqttplugin/mqtt.json");
+	$mqttcfg = json_decode($mqttcfg,true);
+	$mqttcfg = $mqttcfg["Main"];
+	$test = exec("netstat -ul | grep ".$mqttcfg["udpinport"]);
+	if (strlen($test) > 0) {
+		        $mqtt = true;
+	} else {
+		        $mqtt = false;
+	}
+
+}
 
 $home = posix_getpwuid(posix_getuid());
 $home = $home['dir'];
@@ -351,18 +367,37 @@ foreach ( $sevents AS $k => $event ) {
 	$tmp["Start"] += date("I",$tmp["Start"]+$datediff)*$dst_offset;
 	$tmp["End"] += date("I",$tmp["End"]+$datediff)*$dst_offset;
 	echo "\t\t\"Start\": ".$tmp["Start"].",\n";
+	$mqttevent = $event;
+	if (strlen($mqttevent) == 0) { $mqttevent = "next";}
+	sendMQTT("events/$mqttevent/start",$tmp["Start"]);
 	echo "\t\t\"End\": ".$tmp["End"].",\n";
+	sendMQTT("events/$mqttevent/end",$tmp["End"]);
 	echo "\t\t\"Summary\": \"".str_replace('\,',',',$tmp["Summary"])."\",\n";
+	sendMQTT("events/$mqttevent/summary","\"".str_replace('\,',',',$tmp["Summary"])."\"");
 	echo "\t\t\"Description\": \"".str_replace('\,',',',$tmp["Desc"])."\",\n";
+	sendMQTT("events/$mqttevent/description","\"".str_replace('\,',',',$tmp["Desc"])."\"");
 	echo "\t\t\"fwDay\": ".$tmp["fwDay"].",\n";
+	sendMQTT("events/$mqttevent/fwdays",$tmp["fwDay"]);
 	echo "\t\t\"wkDay\": ".$tmp["wkDay"]."\n\t},\n";
+	sendMQTT("events/$mqttevent/wkday",$tmp["wkDay"]);
 }
 if (isset($debug)) echo "\t\"hnow\": \"".date("d.m.Y H:i:s")."\",\n";
 $dst_offset = getDSTOffset(date("Y"));
 echo "\t\"now\": ".(time()-$datediff+date("I")*$dst_offset)."\n";
+sendMQTT("events/$mqttevent/now",(time()-$datediff+date("I")*$dst_offset));
 echo "}\n";
 $timeend = microtime(true) - $timestart;
 //echo $timeend - Script beendet, $countevents Kalendereinträge.\n";
+
+function sendMQTT($topic,$value) {
+	global $mqttcfg, $mqtt, $mqttpretopic;
+	if ($mqtt) {
+		if ($socket = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP)) {
+			$message = "$mqttpretopic$topic $value";
+			socket_sendto($socket, $message, strlen($message), 0, "127.0.0.1", $mqttcfg["udpinport"]);
+		}
+	}
+}
 
 function getDSTOffset($year = NULL) {
 
