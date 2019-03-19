@@ -337,6 +337,7 @@ foreach ( $events AS $k => $event ) {
 					$results[$ematch[2]]["wkDay"] = date("N",$date->getTimestamp());
 					$results[$ematch[2]]["fwDay"] = date_interval_format(date_diff(new DateTime(date("Y-m-d",$ustart+($delay*60))),$date,false),"%r%a");
 					$results[$ematch[2]]["Summary"] = $ematch[1];
+					$results[$ematch[2]]["Desc"] = "";
 					if ( preg_match("/DESCRIPTION:([^\r\n]*)/",$event['data'],$desc) ) $results[$ematch[2]]["Desc"] = $desc[1];
 				}
 			} else {
@@ -345,12 +346,14 @@ foreach ( $events AS $k => $event ) {
 				$results[$ematch[2]]["fwDay"] = $tmpfwDay;
 				$results[$ematch[2]]["End"] = $tmpend;
 				$results[$ematch[2]]["Summary"] = $ematch[1];
+				$results[$ematch[2]]["Desc"] = "";
 				if ( preg_match("/DESCRIPTION:([^\r\n]*)/",$event['data'],$desc) ) $results[$ematch[2]]["Desc"] = $desc[1];
 			}
 		}
 
 	}
 }
+//print_r($results);
 echo "{\n";
 
 $timeend = microtime(true) - $timestart;
@@ -373,9 +376,9 @@ foreach ( $sevents AS $k => $event ) {
 	echo "\t\t\"End\": ".$tmp["End"].",\n";
 	sendMQTT("events/$mqttevent/end",$tmp["End"]);
 	echo "\t\t\"Summary\": \"".str_replace('\,',',',$tmp["Summary"])."\",\n";
-	sendMQTT("events/$mqttevent/summary","\"".str_replace('\,',',',$tmp["Summary"])."\"");
+	sendMQTT("events/$mqttevent/summary",str_replace('\,',',',$tmp["Summary"]));
 	echo "\t\t\"Description\": \"".str_replace('\,',',',$tmp["Desc"])."\",\n";
-	sendMQTT("events/$mqttevent/description","\"".str_replace('\,',',',$tmp["Desc"])."\"");
+	sendMQTT("events/$mqttevent/description",str_replace('\,',',',$tmp["Desc"]));
 	echo "\t\t\"fwDay\": ".$tmp["fwDay"].",\n";
 	sendMQTT("events/$mqttevent/fwdays",$tmp["fwDay"]);
 	echo "\t\t\"wkDay\": ".$tmp["wkDay"]."\n\t},\n";
