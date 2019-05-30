@@ -82,7 +82,8 @@ $localTZ = new DateTimeZone(date("e"));
 $timeend = microtime(true) - $timestart;
 //echo "$timeend - Start Kalenderabholung\n";
 
-if (preg_match("/google\.com\/calendar/",$calURL)) {
+//if (preg_match("/google\.com\/calendar/",$calURL)) {
+if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
 	//Google Kalender
 	//echo "Google Kalender erkannt\n";
 	$events = array();
