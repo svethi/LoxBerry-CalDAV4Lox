@@ -6,7 +6,4 @@ $vendorDir = dirname(dirname(__FILE__));
 $baseDir = dirname($vendorDir);
 
 return array(
-    'Recurr' => array($baseDir . '/src', $vendorDir . '/simshaun/recurr/src'),
-    'Prophecy\\' => array($vendorDir . '/phpspec/prophecy/src'),
-    'Doctrine\\Common\\Collections\\' => array($vendorDir . '/doctrine/collections/lib'),
 );

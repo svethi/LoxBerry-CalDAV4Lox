@@ -12,7 +12,9 @@ require_once("class_caldav.php");
 require __DIR__ . '/vendor/autoload.php';
 require_once "loxberry_system.php";
 
-use Recurr\Rule;
+//use Recurr\Rule;
+use Sabre\VObject;
+use DateTimeInterface;
 
 date_default_timezone_set(date("e"));
 
@@ -63,10 +65,14 @@ foreach ( $sevents AS $e => $event ) {
 	$results[$event] = array("Start" => -1, "End" => -1, "Summary" => "", "Desc" => "", "fwDay" => -1, "wkDay" => -1);
 }
 
+$next = array();
+
 $ustart = time()-($delay * 60);
+$dtstart = new DateTime("@$ustart", new DateTimeZone("UTC"));
 $vdstart = mktime(0,0,0,date("m",$ustart),date("d",$ustart),date("Y",$ustart));
 $start = gmdate("Ymd\THis\Z",$ustart);
 $uend = mktime(date("H"),date("i")+$delay,date("s"),date("m"),date("d")+$fwdays,date("Y"));
+$dtend = new DateTime("@$uend", new DateTimeZone("UTC"));
 $end = gmdate("Ymd\THis\Z",$uend);
 $constraintdelay = 2592000; //30 days
 
@@ -84,8 +90,8 @@ $timeend = microtime(true) - $timestart;
 
 //if (preg_match("/google\.com\/calendar/",$calURL)) {
 if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
-	//Google Kalender
-	//echo "Google Kalender erkannt\n";
+	//iCal Kalender
+	//echo "iCal Kalender erkannt\n";
 	$events = array();
 	if( $cache > 0 ) {
 		if(filemtime($myFile) < date("U")-($cache * 60)) {
@@ -158,83 +164,6 @@ if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
 	}
 	$timeend = microtime(true) - $timestart;
 	//echo "$timeend - Beginne mit Eintragssplitting\n";
-	preg_match_all("/(BEGIN:VEVENT.*END:VEVENT)/isU",$Datei,$gevents, PREG_PATTERN_ORDER);
-	foreach ( $gevents[1] AS $e => $event ) {
-		if (preg_match("/SUMMARY:(.*($search)[^\r\n]*)/",$event,$ematch)) {
-			$countevents +=1;
-			$teststart = $ustart;
-			if(preg_match("/DTSTART;.*TZID=(.*);(VALUE=DATE):(.*)\b/",$event,$estart)) {
-				$teststart = $vdstart;
-				$estart[3] .= "T000000";
-				$estart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[3]),new DateTimeZone($estart[1]));
-			} elseif (preg_match("/DTSTART;.*TZID=(.*):(.*)\b/",$event,$estart)) {
-				$estart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[2]));
-			} elseif (preg_match("/DTSTART(:)(.*)Z\b/",$event,$estart)) {
-				$estart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[2]),new DateTimeZone("UTC"));
-			} elseif (preg_match("/DTSTART;(VALUE=DATE):(.*)\b/",$event,$estart)) {
-				$teststart = $vdstart;
-				$estart[2] .= "T000000";
-				$estart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[2]));
-			}
-			if (preg_match("/DTEND;.*TZID=(.*);(VALUE=DATE):(.*)\b/",$event,$eend)) {
-				$eend[3] .= "T000000";
-				$eend = DateTime::createFromFormat('YmdHis',str_replace("T","",$eend[3]),new DateTimeZone($eend[1]));
-			} elseif (preg_match("/DTEND;.*TZID=(.*):(.*)\b/",$event,$eend)) {
-				$eend = DateTime::createFromFormat('YmdHis',str_replace("T","",$eend[2]),new DateTimeZone($eend[1]));
-			} elseif (preg_match("/DTEND(:)(.*)Z\b/",$event,$eend)) {
-				$eend = DateTime::createFromFormat('YmdHis',str_replace("T","",$eend[2]),new DateTimeZone("UTC"));
-			} elseif (preg_match("/DTEND;(VALUE=DATE):(.*)\b/",$event,$eend)) {
-				$eend[2] .= "T000000";
-				$eend = DateTime::createFromFormat('YmdHis',str_replace("T","",$eend[2]));
-			}
-			date_timezone_set($estart,$localTZ);
-			date_timezone_set($eend,$localTZ);
-
-			$diff = date_format($eend,"U") - date_format($estart,"U");
-			if (preg_match("/RRULE:(.*)/",$event,$rrule)) {
-				//Wiederholungen testen
-				$timeend = microtime(true) - $timestart;
-				//echo "$timeend - Wiederholung gefunden, RRULE starten.\n";
-				preg_match_all("/EXDATE.*:(.*)\s/iU",$event,$resExDates, PREG_PATTERN_ORDER);
-				foreach ($resExDates[1] AS $d => $ExDate) {
-					$ExDates[] = $ExDate;
-				}
-				if (preg_match("/RDATE.*:(.*)\s/",$event,$resRDates)) {
-					$RDates = explode(",",$resRDates[1]);
-				}
-				$recurr = new \Recurr\Rule;
-				$recurr->loadFromString(trim($rrule[1]));
-				$recurr->setStartDate($estart);
-				$recurr->setEndDate($eend);
-				if (isset($ExDates)) $recurr->setExDates($ExDates);
-				if (isset($RDates)) $recurr->setRDates($RDates);
-				$constraint = new \Recurr\Transformer\Constraint\BetweenConstraint(DateTime::createFromFormat("U",$teststart-$constraintdelay), DateTime::createFromFormat("U",$uend+$constraintdelay),True);
-				$transformer = new \Recurr\Transformer\ArrayTransformer();
-				$recresult = $transformer->transform($recurr,$constraint);
-				$recresult = $recresult->endsAfter(DateTime::createFromFormat("U",$teststart),true);
-				$recresult = $recresult->startsBefore(DateTime::createFromFormat("U",$uend),true);
-				$iterator = $recresult->getIterator();
-				$iterator->uasort(function ($a, $b) {
-					return ($a->getStart() < $b->getStart()) ? -1 : 1;
-				});
-				$recresult = new \Recurr\RecurrenceCollection(iterator_to_array($iterator));
-				if (isset($recresult)) {
-					$fdate = $recresult->first();
-					if ($fdate) $date=$fdate->getStart();
-				}
-				if (isset($date) && $uend>=$date->getTimestamp()) {
-					$event = preg_replace("/RRULE:.*[\n]/","",$event);
-					$event = preg_replace("/DTSTART.*/","DTSTART;TZID=".date("e").":".date_format($date,"Ymd\THis"),$event);
-					$event = preg_replace("/DTEND.*/","DTEND;TZID=".date("e").":".date("Ymd\THis",$date->getTimestamp() + $diff),$event);
-					$events[]['data']=$event;
-				}
-				$timeend = microtime(true) - $timestart;
-				//echo "$timeend - RRULE ausgeführt\n";
-			} elseif ( date_format($eend, "U") >= $ustart  && date_format($estart, "U") <= $uend ) {
-				$events[]['data']=$event;
-			}
-		}
-	}
 } else {
 	set_error_handler(
 	create_function(
@@ -252,139 +181,125 @@ if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
 		}
 		$cal->SetDepth($depth);
 		$events = $cal->GetEvents($start,$end);
+		$Datei = '';
+		foreach ( $events AS $k => $event ) {
+			$Datei .= $event['data'];
+		}
 	}
 	catch (Exception $e) {
 		echo $e->getMessage();
 	}
 	restore_error_handler();
 }
+
 //print "$start:$end\n";
 //print_r($events);
-foreach ( $events AS $k => $event ) {
-	$ematch = "";
-	$estart = "";
-	$teststart = $ustart;
-	preg_match("/(BEGIN:VEVENT.*END:VEVENT)/s",$event['data'],$tmp);
-	//print_r($tmp);
-	$event['data'] = $tmp[1];
-	$event['data'] = preg_replace("/BEGIN:VALARM.*END:VALARM/s","",$event['data']);
-	if (preg_match("/SUMMARY:(.*($search)[^\r\n]*)/",$event['data'],$ematch)) {
-		if(preg_match("/DTSTART;.*TZID=(.*);(VALUE=DATE):(.*)\b/",$event['data'],$estart)) {
-			$teststart = $vdstart;
-			$estart[3] .= "T000000";
-			$tmpstart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[3]),new DateTimeZone($estart[1]));
-		} elseif (preg_match("/DTSTART;.*TZID=(.*):(.*)\b/",$event['data'],$estart)) {
-			$tmpstart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[2]));
-		} elseif (preg_match("/DTSTART(:)(.*)Z\b/",$event['data'],$estart)) {
-			$tmpstart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[2]),new DateTimeZone("UTC"));
-		} elseif (preg_match("/DTSTART;(VALUE=DATE):(.*)\b/",$event['data'],$estart)) {
-			$teststart = $vdstart;
-			$estart[2] .= "T000000";
-			$tmpstart = DateTime::createFromFormat('YmdHis',str_replace("T","",$estart[2]));
-		}
-		date_timezone_set($tmpstart,$localTZ);
-		$tmpWKDay = date_format($tmpstart,"N");
-		$tmpfwDay = date_interval_format(date_diff(new DateTime(date("Y-m-d",$ustart+($delay*60))),$tmpstart,false),"%r%a");
-		$tmpstart = date_format($tmpstart,"U");
-		$tmpstart -= $datediff;
-		if (preg_match("/DTEND;.*TZID=(.*);(VALUE=DATE):(.*)\b/",$event['data'],$eend)) {
-			$eend[3] .= "T000000";
-			$tmpend = DateTime::createFromFormat('YmdHis',str_replace("T","",$eend[3]),new DateTimeZone($eend[1]));
-		} elseif (preg_match("/DTEND;.*TZID=(.*):(.*)\b/",$event['data'],$eend)) {
-			$tmpend = DateTime::createFromFormat('YmdHis',str_replace("T","",$eend[2]),new DateTimeZone($eend[1]));
-		} elseif (preg_match("/DTEND(:)(.*)Z\b/",$event['data'],$eend)) {
-			$tmpend = DateTime::createFromFormat('YmdHis',str_replace("T","",$eend[2]),new DateTimeZone("UTC"));
-		} elseif (preg_match("/DTEND;(VALUE=DATE):(.*)\b/",$event['data'],$eend)) {
-			$eend[2] .= "T000000";
-			$tmpend = DateTime::createFromFormat('YmdHis',str_replace("T","",$eend[2]));
-		}
-		$tmpend = date_format($tmpend,"U");
-		$tmpend -= $datediff;
-		$diff = $tmpend - $tmpstart;
-		if ( $results[$ematch[2]]["Start"] == -1 || $tmpstart < $results[$ematch[2]]["Start"]) {
-			if ( preg_match("/RRULE:(.*)/",$event['data'],$rrule)>0 ) {
-				//RRULE vorhanden Tag nächsten Termin suchen
-				//print "nächsten Termin finden/n";
-				$results[$ematch[2]]["RRule"] = $rrule[1];
-				preg_match_all("/EXDATE.*:(.*)\s/iU",$event['data'],$resExDates, PREG_PATTERN_ORDER);
-				foreach ($resExDates[1] AS $d => $ExDate) {
-					$ExDates[] = $ExDate;
-				}
-				if (preg_match("/RDATE.*:(.*)\s/",$event['data'],$resRDates)) {
-					$RDates = explode(",",$resRDates[1]);
-				}
-				$recurr = new \Recurr\Rule;
-				$recurr->loadFromString(trim($rrule[1]));
-				$recurr->setStartDate(new DateTime($estart[2]));
-				$recurr->setEndDate(new DateTime($eend[2]));
-				if (isset($ExDates)) $recurr->setExDates($ExDates);
-				if (isset($RDates)) $recurr->setRDates($RDates);
-				$constraint = new \Recurr\Transformer\Constraint\BetweenConstraint(DateTime::createFromFormat("U",$teststart-$constraintdelay), DateTime::createFromFormat("U",$uend+$constraintdelay),True);
-				$transformer = new \Recurr\Transformer\ArrayTransformer();
-				$recresult = $transformer->transform($recurr,$constraint);
-				//$recresult = $recresult->startsAfter(DateTime::createFromFormat("U",$teststart),true);
-				$recresult = $recresult->endsAfter(DateTime::createFromFormat("U",$teststart),true);
-				$recresult = $recresult->startsBefore(DateTime::createFromFormat("U",$uend),true);
-				$iterator = $recresult->getIterator();
-				$iterator->uasort(function ($a, $b) {
-					return ($a->getStart() < $b->getStart()) ? -1 : 1;
-				});
-				$recresult = new \Recurr\RecurrenceCollection(iterator_to_array($iterator));
-				//print_r($recresult);
-				if (isset($recresult)) $date = $recresult->first()->getStart();
-				if (isset($date) && $uend>=$date->getTimestamp() && ( $results[$ematch[2]]["Start"] == -1 || ($date->getTimestamp() - $datediff) <= $results[$ematch[2]]["Start"])) {
-					$results[$ematch[2]]["Start"] = $date->getTimestamp() - $datediff;
-					$results[$ematch[2]]["End"] = $results[$ematch[2]]["Start"] + $diff;
-					$results[$ematch[2]]["wkDay"] = date("N",$date->getTimestamp());
-					$results[$ematch[2]]["fwDay"] = date_interval_format(date_diff(new DateTime(date("Y-m-d",$ustart+($delay*60))),$date,false),"%r%a");
-					$results[$ematch[2]]["Summary"] = $ematch[1];
-					$results[$ematch[2]]["Desc"] = "";
-					if ( preg_match("/DESCRIPTION:([^\r\n]*)/",$event['data'],$desc) ) $results[$ematch[2]]["Desc"] = $desc[1];
-				}
-			} else {
-				$results[$ematch[2]]["Start"] = $tmpstart;
-				$results[$ematch[2]]["wkDay"] = $tmpWKDay;
-				$results[$ematch[2]]["fwDay"] = $tmpfwDay;
-				$results[$ematch[2]]["End"] = $tmpend;
-				$results[$ematch[2]]["Summary"] = $ematch[1];
-				$results[$ematch[2]]["Desc"] = "";
-				if ( preg_match("/DESCRIPTION:([^\r\n]*)/",$event['data'],$desc) ) $results[$ematch[2]]["Desc"] = $desc[1];
-			}
-		}
+$calendar = VObject\Reader::read($Datei);
+$calendar = $calendar->expand($dtstart, $dtend);
 
+//sort events array
+
+foreach ($calendar->VEVENT as $event) {
+		if (isset($result)) {
+			for ($x = 0; $x < sizeof($result); $x++) {
+				if ($event->DTSTART->getDateTime() < $result[$x]->DTSTART->getDateTime()){
+					array_splice($result,$x,0,[clone $event]);
+					break;
+				}
+			}
+			if ($x == sizeof($result)) { $result[] = clone $event; }
+		} else {
+			$result = [clone $event];
+		}
+}
+
+//filter first event for search events from next events
+
+foreach ($sevents as $sevent) {
+	foreach ($result as $event) {
+		if (preg_match("/(.*($search)[^\r\n]*)/",$event->SUMMARY,$ematch)) {
+			$results[$sevent]=clone $event;
+			break;
+		}
 	}
 }
-//print_r($results);
+
+//print_r($result);
 echo "{\n";
 
 $timeend = microtime(true) - $timestart;
 //echo "$timeend - Daten ausgeben.\n";
 foreach ( $sevents AS $k => $event ) {
 	$tmp = $results[$event];
+	$tmpstart = $tmp->DTSTART->getDateTime($localTZ);
+	//date_timezone_set($tmpstart,$localTZ);
+	$tmpWKDay = $tmpstart->format("N");
+	$tmpfwDay = date_interval_format(date_diff(new DateTime(date("Y-m-d",$ustart+($delay*60))),$tmpstart,false),"%r%a");
+	$tmpstart = $tmpstart->format("U") - $datediff;
+	$tmpend = $tmp->DTEND->getDateTime($localTZ);
+	$tmpend = $tmpend->format("U") - $datediff;
 	echo "\t\"$event\": {\n";
 	if (isset($debug)) {
-		echo "\t\t\"hStart\": \"".date("d.m.Y H:i:s",$tmp["Start"]+$datediff)."\",\n";
-		echo "\t\t\"hEnd\": \"".date("d.m.Y H:i:s",$tmp["End"]+$datediff)."\",\n";
+		echo "\t\t\"hStart\": \"".date("d.m.Y H:i:s",$tmpstart+$datediff)."\",\n";
+		echo "\t\t\"hEnd\": \"".date("d.m.Y H:i:s",$tmpend+$datediff)."\",\n";
 	}
 	//handle dst
-	$dst_offset = getDSTOffset(date("Y",$tmp["Start"]+$datediff));
-	$tmp["Start"] += date("I",$tmp["Start"]+$datediff)*$dst_offset;
-	$tmp["End"] += date("I",$tmp["End"]+$datediff)*$dst_offset;
-	echo "\t\t\"Start\": ".$tmp["Start"].",\n";
+	$dst_offset = getDSTOffset(date("Y",$tmpstart+$datediff));
+	$tmpstart += date("I",$tmpstart+$datediff)*$dst_offset;
+	$tmpend += date("I",$tmpend+$datediff)*$dst_offset;
+	echo "\t\t\"Start\": ".$tmpstart.",\n";
 	$mqttevent = $event;
 	if (strlen($mqttevent) == 0) { $mqttevent = "next";}
-	sendMQTT("events/$mqttevent/start",$tmp["Start"]);
-	echo "\t\t\"End\": ".$tmp["End"].",\n";
-	sendMQTT("events/$mqttevent/end",$tmp["End"]);
-	echo "\t\t\"Summary\": \"".str_replace('\,',',',$tmp["Summary"])."\",\n";
-	sendMQTT("events/$mqttevent/summary",str_replace('\,',',',$tmp["Summary"]));
-	echo "\t\t\"Description\": \"".str_replace('\,',',',$tmp["Desc"])."\",\n";
-	sendMQTT("events/$mqttevent/description",str_replace('\,',',',$tmp["Desc"]));
-	echo "\t\t\"fwDay\": ".$tmp["fwDay"].",\n";
-	sendMQTT("events/$mqttevent/fwdays",$tmp["fwDay"]);
-	echo "\t\t\"wkDay\": ".$tmp["wkDay"]."\n\t},\n";
-	sendMQTT("events/$mqttevent/wkday",$tmp["wkDay"]);
+	sendMQTT("events/$mqttevent/start",$tmpstart);
+	echo "\t\t\"End\": ".$tmpend.",\n";
+	sendMQTT("events/$mqttevent/end",$tmpend);
+	echo "\t\t\"Summary\": \"".str_replace('\,',',',$tmp->SUMMARY)."\",\n";
+	sendMQTT("events/$mqttevent/summary",str_replace('\,',',',$tmp->SUMMARY));
+	echo "\t\t\"Description\": \"".str_replace('\,',',',$tmp->DESCRIPTION)."\",\n";
+	sendMQTT("events/$mqttevent/description",str_replace('\,',',',$tmp->DESCRIPTION));
+	echo "\t\t\"fwDay\": ".$tmpfwDay.",\n";
+	sendMQTT("events/$mqttevent/fwdays",$tmpfwDay);
+	echo "\t\t\"wkDay\": ".$tmpWKDay."\n\t},\n";
+	sendMQTT("events/$mqttevent/wkday",$tmpWKDay);
 }
+echo "\t\"next\": [\n";
+//Liste der nächsten Events
+unset($tmp);
+foreach ( $result AS $event ) {
+	if (isset($tmp)) {echo ",\n";}
+	$tmp = $event;
+	$tmpstart = $tmp->DTSTART->getDateTime($localTZ);
+	//date_timezone_set($tmpstart,$localTZ);
+	$tmpWKDay = $tmpstart->format("N");
+	$tmpfwDay = date_interval_format(date_diff(new DateTime(date("Y-m-d",$ustart+($delay*60))),$tmpstart,false),"%r%a");
+	$tmpstart = $tmpstart->format("U") - $datediff;
+	$tmpend = $tmp->DTEND->getDateTime($localTZ);
+	$tmpend = $tmpend->format("U") - $datediff;
+	echo "\t\t{\n";
+	if (isset($debug)) {
+		echo "\t\t\t\"hStart\": \"".date("d.m.Y H:i:s",$tmpstart+$datediff)."\",\n";
+		echo "\t\t\t\"hEnd\": \"".date("d.m.Y H:i:s",$tmpend+$datediff)."\",\n";
+	}
+	//handle dst
+	$dst_offset = getDSTOffset(date("Y",$tmpstart+$datediff));
+	$tmpstart += date("I",$tmpstart+$datediff)*$dst_offset;
+	$tmpend += date("I",$tmpend+$datediff)*$dst_offset;
+	echo "\t\t\t\"Start\": ".$tmpstart.",\n";
+	$mqttevent = $event->SUMMARY;
+	if (strlen($mqttevent) == 0) { $mqttevent = "next";}
+	//sendMQTT("events/$mqttevent/start",$tmpstart);
+	echo "\t\t\t\"End\": ".$tmpend.",\n";
+	//sendMQTT("events/$mqttevent/end",$tmpend);
+	echo "\t\t\t\"Summary\": \"".str_replace('\,',',',$tmp->SUMMARY)."\",\n";
+	//sendMQTT("events/$mqttevent/summary",str_replace('\,',',',$tmp->SUMMARY));
+	echo "\t\t\t\"Description\": \"".str_replace('\,',',',$tmp->DESCRIPTION)."\",\n";
+	//sendMQTT("events/$mqttevent/description",str_replace('\,',',',$tmp->DESCRIPTION));
+	echo "\t\t\t\"fwDay\": ".$tmpfwDay.",\n";
+	//sendMQTT("events/$mqttevent/fwdays",$tmpfwDay);
+	echo "\t\t\t\"wkDay\": ".$tmpWKDay."\n\t\t}";
+	//sendMQTT("events/$mqttevent/wkday",$tmpWKDay);
+}
+echo "\n\t]\n";
 if (isset($debug)) echo "\t\"hnow\": \"".date("d.m.Y H:i:s")."\",\n";
 $dst_offset = getDSTOffset(date("Y"));
 echo "\t\"now\": ".(time()-$datediff+date("I")*$dst_offset)."\n";
