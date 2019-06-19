@@ -14,7 +14,6 @@ require_once "loxberry_system.php";
 
 //use Recurr\Rule;
 use Sabre\VObject;
-use DateTimeInterface;
 
 date_default_timezone_set(date("e"));
 
@@ -61,8 +60,17 @@ $depth = $caldavconf['Depth'];
 
 if (!isset($delay)) $delay = 60;
 
+$localTZ = new DateTimeZone(date("e"));
+
+$dummycal = new \Sabre\VObject\Component\VCalendar();
+$dummyevent = $dummycal->createComponent('VEVENT');
+$dummyevent->SUMMARY = "";
+$dummyevent->DTSTART = "20081231T235959";
+$dummyevent->DTEND = "20081231T235959";
+
+
 foreach ( $sevents AS $e => $event ) {
-	$results[$event] = array("Start" => -1, "End" => -1, "Summary" => "", "Desc" => "", "fwDay" => -1, "wkDay" => -1);
+	$results[$event] = clone $dummyevent;
 }
 
 $next = array();
@@ -82,8 +90,6 @@ $dst_offset = getDSTOffset(2009);
 //echo $dst_offset,"\n";
 if (date("I",$datediff) == 1) $datediff += $dst_offset;
 //echo $datediff,"\n";
-
-$localTZ = new DateTimeZone(date("e"));
 
 $timeend = microtime(true) - $timestart;
 //echo "$timeend - Start Kalenderabholung\n";
@@ -181,10 +187,12 @@ if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
 		}
 		$cal->SetDepth($depth);
 		$events = $cal->GetEvents($start,$end);
-		$Datei = '';
+		$Datei = "BEGIN:VCALENDAR\n";
 		foreach ( $events AS $k => $event ) {
-			$Datei .= $event['data'];
+			preg_match("/(BEGIN:VCALENDAR(.*?)(BEGIN.*)END:VCALENDAR)/s",$event['data'],$tmp);
+			$Datei .= $tmp[3];
 		}
+		$Datei .= "END:VCALENDAR\n";
 	}
 	catch (Exception $e) {
 		echo $e->getMessage();
@@ -233,8 +241,13 @@ foreach ( $sevents AS $k => $event ) {
 	$tmp = $results[$event];
 	$tmpstart = $tmp->DTSTART->getDateTime($localTZ);
 	//date_timezone_set($tmpstart,$localTZ);
-	$tmpWKDay = $tmpstart->format("N");
-	$tmpfwDay = date_interval_format(date_diff(new DateTime(date("Y-m-d",$ustart+($delay*60))),$tmpstart,false),"%r%a");
+	if ($tmp->DTSTART == "20081231T235959") {
+		$tmpWKDay = "-1";
+		$tmpfwDay = "-1";
+	} else {
+		$tmpWKDay = $tmpstart->format("N");
+		$tmpfwDay = date_interval_format(date_diff(new DateTime(date("Y-m-d",$ustart+($delay*60))),$tmpstart,false),"%r%a");
+	}
 	$tmpstart = $tmpstart->format("U") - $datediff;
 	$tmpend = $tmp->DTEND->getDateTime($localTZ);
 	$tmpend = $tmpend->format("U") - $datediff;
