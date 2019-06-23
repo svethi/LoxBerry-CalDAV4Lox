@@ -202,8 +202,6 @@ if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
 
 //echo $Datei;
 
-$Datei = file_get_contents("/mnt/storage/dev/caldav4lox/webfrontend/html/test2.ics");
-
 //print "$start:$end\n";
 //print_r($events);
 $calendar = VObject\Reader::read($Datei);
