@@ -76,13 +76,12 @@ foreach ( $sevents AS $e => $event ) {
 $next = array();
 
 $ustart = time()-($delay * 60);
-$dtstart = new DateTime("@$ustart", new DateTimeZone("UTC"));
+$dtstart = new DateTime("@$ustart", $localTZ); //new DateTimeZone("UTC"));
 $vdstart = mktime(0,0,0,date("m",$ustart),date("d",$ustart),date("Y",$ustart));
 $start = gmdate("Ymd\THis\Z",$ustart);
 $uend = mktime(date("H"),date("i")+$delay,date("s"),date("m"),date("d")+$fwdays,date("Y"));
-$dtend = new DateTime("@$uend", new DateTimeZone("UTC"));
+$dtend = new DateTime("@$uend", $localTZ); //new DateTimeZone("UTC"));
 $end = gmdate("Ymd\THis\Z",$uend);
-$constraintdelay = 2592000; //30 days
 
 $datediff = mktime(0,0,0,1,1,2009);
 //echo $datediff,"\n";
@@ -187,9 +186,10 @@ if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
 		}
 		$cal->SetDepth($depth);
 		$events = $cal->GetEvents($start,$end);
-		$Datei = "BEGIN:VCALENDAR\n";
+		$Datei = "BEGIN:VCALENDAR";
 		foreach ( $events AS $k => $event ) {
 			preg_match("/(BEGIN:VCALENDAR(.*?)(BEGIN.*)END:VCALENDAR)/s",$event['data'],$tmp);
+			if (strlen($Datei) == 15) {$Datei .= $tmp[2];}
 			$Datei .= $tmp[3];
 		}
 		$Datei .= "END:VCALENDAR\n";
@@ -200,17 +200,21 @@ if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
 	restore_error_handler();
 }
 
+//echo $Datei;
+
+$Datei = file_get_contents("/mnt/storage/dev/caldav4lox/webfrontend/html/test2.ics");
+
 //print "$start:$end\n";
 //print_r($events);
 $calendar = VObject\Reader::read($Datei);
-$calendar = $calendar->expand($dtstart, $dtend);
+$calendar = $calendar->expand($dtstart, $dtend, $localTZ);
 
 //sort events array
 
 foreach ($calendar->VEVENT as $event) {
 		if (isset($result)) {
 			for ($x = 0; $x < sizeof($result); $x++) {
-				if ($event->DTSTART->getDateTime() < $result[$x]->DTSTART->getDateTime()){
+				if ($event->DTSTART->getDateTime($localTZ) < $result[$x]->DTSTART->getDateTime($localTZ)){
 					array_splice($result,$x,0,[clone $event]);
 					break;
 				}
