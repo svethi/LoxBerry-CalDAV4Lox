@@ -21,8 +21,16 @@ $calURL = @($_GET["calURL"]);
 $user = @($_GET["user"]);
 $pass = @($_GET["pass"]);
 $fwdays = @($_GET["fwdays"]);
+$getNextEvents=False;
 $sevents = @explode("|",$_GET["events"]);
-$search = @($_GET["events"]);
+if (array_search("*",$sevents) !== False) {
+	$getNextEvents = True;
+	unset($sevents[array_search("*",$sevents)]);
+}
+$search = @implode("|",$sevents);
+//$search = @($_GET["events"]);
+//$search = preg_replace("#\*(\|?)#","$1",$search);
+//$search = preg_replace("#^\|#","",$search);
 $delay = @($_GET["delay"]);
 $debug = @($_GET["debug"]);
 $cache = @($_GET["cache"]);
@@ -277,49 +285,57 @@ foreach ( $sevents AS $k => $event ) {
 	echo "\t\t\"wkDay\": ".$tmpWKDay."\n\t},\n";
 	sendMQTT("events/$mqttevent/wkday",$tmpWKDay);
 }
-echo "\t\"next\": [\n";
 //Liste der nächsten Events
-unset($tmp);
-foreach ( $result AS $event ) {
-	if (isset($tmp)) {echo ",\n";}
-	$tmp = $event;
-	$tmpstart = $tmp->DTSTART->getDateTime($localTZ);
-	//date_timezone_set($tmpstart,$localTZ);
-	$tmpWKDay = $tmpstart->format("N");
-	$tmpfwDay = date_interval_format(date_diff(new DateTime(date("Y-m-d",$ustart+($delay*60))),$tmpstart,false),"%r%a");
-	$tmpstart = $tmpstart->format("U") - $datediff;
-	$tmpend = $tmp->DTEND->getDateTime($localTZ);
-	$tmpend = $tmpend->format("U") - $datediff;
-	echo "\t\t{\n";
-	if (isset($debug)) {
-		echo "\t\t\t\"hStart\": \"".date("d.m.Y H:i:s",$tmpstart+$datediff)."\",\n";
-		echo "\t\t\t\"hEnd\": \"".date("d.m.Y H:i:s",$tmpend+$datediff)."\",\n";
+if ($getNextEvents) {
+	$nextEvents="[\n";
+	echo "\t\"next\": ";
+	unset($tmp);
+	$cnt=0;
+	foreach ( $result AS $event ) {
+		$cnt+=1;
+		if (isset($tmp)) {$nextEvents .= ",\n";}
+		$tmp = $event;
+		$tmpstart = $tmp->DTSTART->getDateTime($localTZ);
+		//date_timezone_set($tmpstart,$localTZ);
+		$tmpWKDay = $tmpstart->format("N");
+		$tmpfwDay = date_interval_format(date_diff(new DateTime(date("Y-m-d",$ustart+($delay*60))),$tmpstart,false),"%r%a");
+		$tmpstart = $tmpstart->format("U") - $datediff;
+		$tmpend = $tmp->DTEND->getDateTime($localTZ);
+		$tmpend = $tmpend->format("U") - $datediff;
+		$nextEvents .= "\t\t{\n\t\t\t\"number\": $cnt,\n";
+		if (isset($debug)) {
+			$nextEvents .= "\t\t\t\"hStart\": \"".date("d.m.Y H:i:s",$tmpstart+$datediff)."\",\n";
+			$nextEvents .= "\t\t\t\"hEnd\": \"".date("d.m.Y H:i:s",$tmpend+$datediff)."\",\n";
+		}
+		//handle dst
+		$dst_offset = getDSTOffset(date("Y",$tmpstart+$datediff));
+		$tmpstart += date("I",$tmpstart+$datediff)*$dst_offset;
+		$tmpend += date("I",$tmpend+$datediff)*$dst_offset;
+		$nextEvents .= "\t\t\t\"Start\": ".$tmpstart.",\n";
+		$mqttevent = $event->SUMMARY;
+		if (strlen($mqttevent) == 0) { $mqttevent = "next";}
+		//sendMQTT("events/$mqttevent/start",$tmpstart);
+		$nextEvents .= "\t\t\t\"End\": ".$tmpend.",\n";
+		//sendMQTT("events/$mqttevent/end",$tmpend);	
+		$nextEvents .= "\t\t\t\"Summary\": \"".str_replace('\,',',',$tmp->SUMMARY)."\",\n";
+		//sendMQTT("events/$mqttevent/summary",str_replace('\,',',',$tmp->SUMMARY));
+		$nextEvents .= "\t\t\t\"Description\": \"".str_replace('\,',',',$tmp->DESCRIPTION)."\",\n";
+		//sendMQTT("events/$mqttevent/description",str_replace('\,',',',$tmp->DESCRIPTION));
+		$nextEvents .= "\t\t\t\"fwDay\": ".$tmpfwDay.",\n";
+		//sendMQTT("events/$mqttevent/fwdays",$tmpfwDay);
+		$nextEvents .= "\t\t\t\"wkDay\": ".$tmpWKDay."\n\t\t}";
+		//sendMQTT("events/$mqttevent/wkday",$tmpWKDay);
 	}
-	//handle dst
-	$dst_offset = getDSTOffset(date("Y",$tmpstart+$datediff));
-	$tmpstart += date("I",$tmpstart+$datediff)*$dst_offset;
-	$tmpend += date("I",$tmpend+$datediff)*$dst_offset;
-	echo "\t\t\t\"Start\": ".$tmpstart.",\n";
-	$mqttevent = $event->SUMMARY;
-	if (strlen($mqttevent) == 0) { $mqttevent = "next";}
-	//sendMQTT("events/$mqttevent/start",$tmpstart);
-	echo "\t\t\t\"End\": ".$tmpend.",\n";
-	//sendMQTT("events/$mqttevent/end",$tmpend);
-	echo "\t\t\t\"Summary\": \"".str_replace('\,',',',$tmp->SUMMARY)."\",\n";
-	//sendMQTT("events/$mqttevent/summary",str_replace('\,',',',$tmp->SUMMARY));
-	echo "\t\t\t\"Description\": \"".str_replace('\,',',',$tmp->DESCRIPTION)."\",\n";
-	//sendMQTT("events/$mqttevent/description",str_replace('\,',',',$tmp->DESCRIPTION));
-	echo "\t\t\t\"fwDay\": ".$tmpfwDay.",\n";
-	//sendMQTT("events/$mqttevent/fwdays",$tmpfwDay);
-	echo "\t\t\t\"wkDay\": ".$tmpWKDay."\n\t\t}";
-	//sendMQTT("events/$mqttevent/wkday",$tmpWKDay);
+	$nextEvents .= "\n\t]";
+	echo "$nextEvents,\n";
+	sendMQTT("events/next", "{ \"data\": $nextEvents\n}");
 }
-echo "\n\t]\n";
 if (isset($debug)) echo "\t\"hnow\": \"".date("d.m.Y H:i:s")."\",\n";
 $dst_offset = getDSTOffset(date("Y"));
 echo "\t\"now\": ".(time()-$datediff+date("I")*$dst_offset)."\n";
 sendMQTT("events/$mqttevent/now",(time()-$datediff+date("I")*$dst_offset));
 echo "}\n";
+	
 $timeend = microtime(true) - $timestart;
 //echo $timeend - Script beendet, $countevents Kalendereinträge.\n";
 

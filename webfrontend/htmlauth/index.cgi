@@ -174,7 +174,9 @@ if ( $caldavurl =~ m{
 	if ($tempevents eq "") {print "<p></p>\n";}
 	foreach (split(/\|/,$tempevents))
 	{
-	print "<p>$_:</ br><ul style=\"display: table;\">\n<li style=\"display: table-row;\"><div style=\"width: 15%; display: table-cell;\">" . $L{"LABEL.TXT0001"} . "</div>: <span style=\"background-color: #cccccc\">$_\": {\\i\"Start\"\\i: \\v</span></li>\n<li style=\"display: table-row;\"><div style=\"width: 15%; display: table-cell;\">" . $L{"LABEL.TXT0002"} . "</div>: <span style=\"background-color: #cccccc\">$_\": {\\i\"End\"\\i: \\v</span></li>\n<li style=\"display: table-row;\"><div style=\"width: 15%; display: table-cell;\">" . $L{"LABEL.TXT0003"} . "</div>: <span style=\"background-color: #cccccc\">$_\": {\\i\"fwDay\"\\i: \\v</span></li>\n<li style=\"display: table-row;\"><div style=\"width: 15%; display: table-cell;\">" . $L{"LABEL.TXT0004"} . "</div>: <span style=\"background-color: #cccccc\">$_\": {\\i\"wkDay\"\\i: \\v</span></li>\n</ul></p>";
+		if ($_ ne "*") {
+			print "<p>$_:</ br><ul style=\"display: table;\">\n<li style=\"display: table-row;\"><div style=\"width: 15%; display: table-cell;\">" . $L{"LABEL.TXT0001"} . "</div>: <span style=\"background-color: #cccccc\">$_\": {\\i\"Start\"\\i: \\v</span></li>\n<li style=\"display: table-row;\"><div style=\"width: 15%; display: table-cell;\">" . $L{"LABEL.TXT0002"} . "</div>: <span style=\"background-color: #cccccc\">$_\": {\\i\"End\"\\i: \\v</span></li>\n<li style=\"display: table-row;\"><div style=\"width: 15%; display: table-cell;\">" . $L{"LABEL.TXT0003"} . "</div>: <span style=\"background-color: #cccccc\">$_\": {\\i\"fwDay\"\\i: \\v</span></li>\n<li style=\"display: table-row;\"><div style=\"width: 15%; display: table-cell;\">" . $L{"LABEL.TXT0004"} . "</div>: <span style=\"background-color: #cccccc\">$_\": {\\i\"wkDay\"\\i: \\v</span></li>\n</ul></p>";
+		}
 	}
 	print $L{"LABEL.TXT0005"} . ": <span style=\"background-color: #cccccc\">\"now\": \\v</span></p>\n";
 }
