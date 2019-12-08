@@ -235,7 +235,7 @@ foreach ($calendar->VEVENT as $event) {
 
 foreach ($sevents as $sevent) {
 	foreach ($result as $event) {
-		if (preg_match("/(.*($search)[^\r\n]*)/",$event->SUMMARY,$ematch)) {
+		if (preg_match("/(.*($sevent)[^\r\n]*)/",$event->SUMMARY,$ematch)) {
 			$results[$sevent]=clone $event;
 			break;
 		}
