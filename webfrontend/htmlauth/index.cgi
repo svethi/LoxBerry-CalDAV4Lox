@@ -85,7 +85,9 @@ if ( $depth == 0 ) {$selecteddepth0="selected"} else { $selecteddepth1="selected
 LOGDEB "retrieve the local ip";
 require IO::Socket::INET;
 my $localip = LoxBerry::System::get_localip();
-LOGDEB "localIP: $localip";
+my $localPort = "";
+if ( LoxBerry::System::lbwebserverport() != 80) { $localPort = ":".LoxBerry::System::lbwebserverport() }
+LOGDEB "localIP: $localip$localPort";
 LOGDEB "Done";
 
 LOGDEB "retrieve the defaul gateway";
@@ -154,7 +156,7 @@ if ( $caldavurl =~ m{
 	$tempevents =~ s/\n/\|/g;
 	$tempevents =~ s/\r//g;
 	$tempevents =~ s/ //g;
-	my $tempURL = "http://$localip/plugins/$lbpplugindir/caldav.php?calURL=$tempcalurl&user=$caldavuser&pass=$caldavpass";
+	my $tempURL = "http://$localip$localPort/plugins/$lbpplugindir/caldav.php?calURL=$tempcalurl&user=$caldavuser&pass=$caldavpass";
 	if ( $fwdays ) { if (($fwdays > 0) && ($fwdays < 364)) {$tempURL .= "&fwdays=$fwdays";}}
   if ( $delay ) { if (($delay > 0) && ($fwdays < 1440)) {$tempURL.= "&delay=$delay";}}
   if ( $cache ) { if (($cache > 0) && ($cache < 1440)) {$tempURL.= "&cache=$cache";}}
