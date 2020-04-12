@@ -38,26 +38,23 @@ $mqttpretopic = "caldav4lox/";
 
 $mqttplugin = LBSystem::plugindata("mqttgateway");
 if ($mqttplugin) {
-	$mqttplugin = $mqttplugin['PLUGINDB_FOLDER'];
-	$mqttcfg = file_get_contents("$lbhomedir/config/plugins/$mqttplugin/mqtt.json");
-	$mqttcfg = json_decode($mqttcfg,true);
-	$mqttcfg = $mqttcfg["Main"];
-	$test = exec("netstat -ul | grep ".$mqttcfg["udpinport"]);
-	if (strlen($test) > 0) {
-		        $mqtt = true;
+	if (version_compare($mqttplugin['PLUGINDB_VERSION'], '0.9', '<')) {
+		//eventuell bei späterem Logging zu kleine mqtt version loggen
+		$mqtt = false;
 	} else {
-		        $mqtt = false;
+		$mqttplugin = $mqttplugin['PLUGINDB_FOLDER'];
+		$mqttcfg = file_get_contents("$lbhomedir/config/plugins/$mqttplugin/mqtt.json");
+		$mqttcfg = json_decode($mqttcfg,true);
+		$mqttcfg = $mqttcfg["Main"];
+		$test = exec("netstat -ul | grep ".$mqttcfg["udpinport"]);
+		if (strlen($test) > 0) {
+			        $mqtt = true;
+		} else {
+			        $mqtt = false;
+		}		
 	}
 
 }
-
-$home = posix_getpwuid(posix_getuid());
-$home = $home['dir'];
-
-# Figure out in which subfolder we are installed
-
-$psubfolder = __FILE__;
-$psubfolder = preg_replace('/(.*)\/(.*)\/(.*)$/',"$2", $psubfolder);
 
 $myFile = "$lbpdatadir/caldav_".MD5($calURL).".ical";
 
@@ -201,6 +198,8 @@ if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
 			$Datei .= $tmp[3];
 		}
 		$Datei .= "END:VCALENDAR\n";
+		$cal = "";
+		$events = "";
 	}
 	catch (Exception $e) {
 		echo $e->getMessage();
@@ -212,6 +211,7 @@ if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
 
 //print "$start:$end\n";
 //print_r($events);
+
 $calendar = VObject\Reader::read($Datei);
 $calendar = $calendar->expand($dtstart, $dtend, $localTZ);
 
@@ -243,7 +243,9 @@ foreach ($sevents as $sevent) {
 }
 
 //print_r($result);
-echo "{\n";
+
+//initialize json results
+unset($resjson);
 
 $timeend = microtime(true) - $timestart;
 //echo "$timeend - Daten ausgeben.\n";
@@ -261,34 +263,38 @@ foreach ( $sevents AS $k => $event ) {
 	$tmpstart = $tmpstart->format("U") - $datediff;
 	$tmpend = $tmp->DTEND->getDateTime($localTZ);
 	$tmpend = $tmpend->format("U") - $datediff;
-	echo "\t\"$event\": {\n";
+	unset($resevent);
 	if (isset($debug)) {
-		echo "\t\t\"hStart\": \"".date("d.m.Y H:i:s",$tmpstart+$datediff)."\",\n";
-		echo "\t\t\"hEnd\": \"".date("d.m.Y H:i:s",$tmpend+$datediff)."\",\n";
+		$resevent["hStart"] = date("d.m.Y H:i:s",$tmpstart+$datediff);
+		$resevent["hEnd"] = date("d.m.Y H:i:s",$tmpend+$datediff);
 	}
 	//handle dst
 	$dst_offset = getDSTOffset(date("Y",$tmpstart+$datediff));
 	$tmpstart += date("I",$tmpstart+$datediff)*$dst_offset;
 	$tmpend += date("I",$tmpend+$datediff)*$dst_offset;
-	echo "\t\t\"Start\": ".$tmpstart.",\n";
+	$resevent["Start"] = $tmpstart;
 	$mqttevent = $event;
 	if (strlen($mqttevent) == 0) { $mqttevent = "next";}
-	sendMQTT("events/$mqttevent/start",$tmpstart);
-	echo "\t\t\"End\": ".$tmpend.",\n";
-	sendMQTT("events/$mqttevent/end",$tmpend);
-	echo "\t\t\"Summary\": \"".str_replace('\,',',',$tmp->SUMMARY)."\",\n";
-	sendMQTT("events/$mqttevent/summary",str_replace('\,',',',$tmp->SUMMARY));
-	echo "\t\t\"Description\": \"".str_replace('\,',',',$tmp->DESCRIPTION)."\",\n";
-	sendMQTT("events/$mqttevent/description",str_replace('\,',',',$tmp->DESCRIPTION));
-	echo "\t\t\"fwDay\": ".$tmpfwDay.",\n";
-	sendMQTT("events/$mqttevent/fwdays",$tmpfwDay);
-	echo "\t\t\"wkDay\": ".$tmpWKDay."\n\t},\n";
-	sendMQTT("events/$mqttevent/wkday",$tmpWKDay);
+	sendMQTT("events/$mqttevent/Start",$tmpstart);
+	$resevent["End"] = $tmpend;
+	sendMQTT("events/$mqttevent/End",$tmpend);
+	$resevent["Summary"] = str_replace('\,',',',$tmp->SUMMARY);
+	sendMQTT("events/$mqttevent/Summary",str_replace('\,',',',$tmp->SUMMARY));
+	$resevent["Description"] = str_replace('\,',',',$tmp->DESCRIPTION);
+	sendMQTT("events/$mqttevent/Description",str_replace('\,',',',$tmp->DESCRIPTION));
+	$resevent["fwDay"] = $tmpfwDay;
+	sendMQTT("events/$mqttevent/fwDay",$tmpfwDay);
+	$resevent["wkDay"] = $tmpWKDay;
+	sendMQTT("events/$mqttevent/wkDay",$tmpWKDay);
+	$resevent["now"] = (time()-$datediff+date("I")*$dst_offset);
+	sendMQTT("events/$mqttevent/now",(time()-$datediff+date("I")*$dst_offset));
+	$resjson[$event] = $resevent;
 }
+
 //Liste der nächsten Events
+unset($resnext);
+unset($resevent);
 if ($getNextEvents) {
-	$nextEvents="[\n";
-	echo "\t\"next\": ";
 	unset($tmp);
 	$cnt=0;
 	foreach ( $result AS $event ) {
@@ -302,48 +308,50 @@ if ($getNextEvents) {
 		$tmpstart = $tmpstart->format("U") - $datediff;
 		$tmpend = $tmp->DTEND->getDateTime($localTZ);
 		$tmpend = $tmpend->format("U") - $datediff;
-		$nextEvents .= "\t\t{\n\t\t\t\"number\": $cnt,\n";
+		$resevent["number"] = $cnt;
 		if (isset($debug)) {
-			$nextEvents .= "\t\t\t\"hStart\": \"".date("d.m.Y H:i:s",$tmpstart+$datediff)."\",\n";
-			$nextEvents .= "\t\t\t\"hEnd\": \"".date("d.m.Y H:i:s",$tmpend+$datediff)."\",\n";
+			$resevent["hStart"] = date("d.m.Y H:i:s",$tmpstart+$datediff);
+			$resevent["hEnd"] = date("d.m.Y H:i:s",$tmpend+$datediff);
 		}
 		//handle dst
 		$dst_offset = getDSTOffset(date("Y",$tmpstart+$datediff));
 		$tmpstart += date("I",$tmpstart+$datediff)*$dst_offset;
 		$tmpend += date("I",$tmpend+$datediff)*$dst_offset;
-		$nextEvents .= "\t\t\t\"Start\": ".$tmpstart.",\n";
+		$resevent["Start"] = $tmpstart;
 		$mqttevent = $event->SUMMARY;
 		if (strlen($mqttevent) == 0) { $mqttevent = "next";}
-		//sendMQTT("events/$mqttevent/start",$tmpstart);
-		$nextEvents .= "\t\t\t\"End\": ".$tmpend.",\n";
-		//sendMQTT("events/$mqttevent/end",$tmpend);	
-		$nextEvents .= "\t\t\t\"Summary\": \"".str_replace('\,',',',$tmp->SUMMARY)."\",\n";
-		//sendMQTT("events/$mqttevent/summary",str_replace('\,',',',$tmp->SUMMARY));
-		$nextEvents .= "\t\t\t\"Description\": \"".str_replace('\,',',',$tmp->DESCRIPTION)."\",\n";
-		//sendMQTT("events/$mqttevent/description",str_replace('\,',',',$tmp->DESCRIPTION));
-		$nextEvents .= "\t\t\t\"fwDay\": ".$tmpfwDay.",\n";
-		//sendMQTT("events/$mqttevent/fwdays",$tmpfwDay);
-		$nextEvents .= "\t\t\t\"wkDay\": ".$tmpWKDay."\n\t\t}";
-		//sendMQTT("events/$mqttevent/wkday",$tmpWKDay);
+		$resevent["End"] = $tmpend;
+		$resevent["Summary"] = str_replace('\,',',',$tmp->SUMMARY);
+		$resevent["Description"] = str_replace('\,',',',$tmp->DESCRIPTION);
+		$resevent["fwDay"] = $tmpfwDay;
+		$resevent["wkDay"] = $tmpWKDay;
+		$resevent["now"] = (time()-$datediff+date("I")*$dst_offset);
+		$resnext[] = $resevent;
 	}
-	$nextEvents .= "\n\t]";
-	echo "$nextEvents,\n";
-	sendMQTT("events/next", "{ \"data\": $nextEvents\n}");
+	$resjson["next"] = $resnext;
+	//$resnext = json_encode($resnext);
+	unset($nextEvents);
+	$nextEvents["data"] = $resnext;
+	sendMQTT("events/next", json_encode($nextEvents));
 }
-if (isset($debug)) echo "\t\"hnow\": \"".date("d.m.Y H:i:s")."\",\n";
+if (isset($debug)) $resjson["hnow"] = date("d.m.Y H:i:s");
 $dst_offset = getDSTOffset(date("Y"));
-echo "\t\"now\": ".(time()-$datediff+date("I")*$dst_offset)."\n";
-sendMQTT("events/$mqttevent/now",(time()-$datediff+date("I")*$dst_offset));
-echo "}\n";
+$resjson["now"] = (time()-$datediff+date("I")*$dst_offset);
+sendMQTT("events/now",(time()-$datediff+date("I")*$dst_offset));
+
+echo json_encode($resjson,JSON_PRETTY_PRINT);
 	
 $timeend = microtime(true) - $timestart;
 //echo $timeend - Script beendet, $countevents Kalendereinträge.\n";
 
-function sendMQTT($topic,$value) {
+function sendMQTT($topic,$value,$retain = false) {
 	global $mqttcfg, $mqtt, $mqttpretopic;
 	if ($mqtt) {
 		if ($socket = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP)) {
-			$message = "$mqttpretopic$topic $value";
+			$message["topic"] = "$mqttpretopic$topic";
+			$message["value"] = $value;
+			$message["retain"] = $retain;
+			$message = json_encode($message);
 			socket_sendto($socket, $message, strlen($message), 0, "127.0.0.1", $mqttcfg["udpinport"]);
 		}
 	}
