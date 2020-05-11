@@ -329,17 +329,17 @@ if ($getNextEvents) {
 		$resnext[] = $resevent;
 	}
 	$resjson["next"] = $resnext;
-	//$resnext = json_encode($resnext,JSON_UNESCAPED_UNICODE);
+	//$resnext = json_encode($resnext,JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_NUMERIC_CHECK);
 	unset($nextEvents);
 	$nextEvents["data"] = $resnext;
-	sendMQTT("events/next", json_encode($nextEvents,JSON_UNESCAPED_UNICODE));
+	sendMQTT("events/next", json_encode($nextEvents,JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_NUMERIC_CHECK));
 }
 if (isset($debug)) $resjson["hnow"] = date("d.m.Y H:i:s");
 $dst_offset = getDSTOffset(date("Y"));
 $resjson["now"] = (time()-$datediff+date("I")*$dst_offset);
 sendMQTT("events/now",(time()-$datediff+date("I")*$dst_offset));
 
-echo json_encode($resjson,JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+echo json_encode($resjson,JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_NUMERIC_CHECK);
 	
 $timeend = microtime(true) - $timestart;
 //echo $timeend - Script beendet, $countevents Kalendereinträge.\n";
@@ -351,7 +351,7 @@ function sendMQTT($topic,$value,$retain = false) {
 			$message["topic"] = "$mqttpretopic$topic";
 			$message["value"] = $value;
 			$message["retain"] = $retain;
-			$message = json_encode($message,JSON_UNESCAPED_UNICODE);
+			$message = json_encode($message,JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_NUMERIC_CHECK);
 			socket_sendto($socket, $message, strlen($message), 0, "127.0.0.1", $mqttcfg["udpinport"]);
 		}
 	}
