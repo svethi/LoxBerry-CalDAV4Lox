@@ -261,7 +261,11 @@ foreach ( $sevents AS $k => $event ) {
 		$tmpfwDay = date_interval_format(date_diff(new DateTime(date("Y-m-d",$ustart+($delay*60))),$tmpstart,false),"%r%a");
 	}
 	$tmpstart = $tmpstart->format("U") - $datediff;
-	$tmpend = $tmp->DTEND->getDateTime($localTZ);
+	if (isset($tmp->DTEND)) {
+		$tmpend = $tmp->DTEND->getDateTime($localTZ);
+	} else {
+		$tmpend = $tmp->DTSTART->getDateTime($localTZ);
+	}
 	$tmpend = $tmpend->format("U") - $datediff;
 	unset($resevent);
 	if (isset($debug)) {
@@ -306,7 +310,11 @@ if ($getNextEvents) {
 		$tmpWKDay = $tmpstart->format("N");
 		$tmpfwDay = date_interval_format(date_diff(new DateTime(date("Y-m-d",$ustart+($delay*60))),$tmpstart,false),"%r%a");
 		$tmpstart = $tmpstart->format("U") - $datediff;
-		$tmpend = $tmp->DTEND->getDateTime($localTZ);
+		if (isset($tmp->DTEND)) {
+			$tmpend = $tmp->DTEND->getDateTime($localTZ);
+		} else {
+			$tmpend = $tmp->DTSTART->getDateTime($localTZ);
+		}
 		$tmpend = $tmpend->format("U") - $datediff;
 		$resevent["number"] = $cnt;
 		if (isset($debug)) {
