@@ -197,6 +197,7 @@ if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
 			if (strlen($Datei) == 15) {$Datei .= $tmp[2];}
 			$Datei .= $tmp[3];
 		}
+		if (!count($events)) $Datei .= "\n";
 		$Datei .= "END:VCALENDAR\n";
 		$cal = "";
 		$events = "";
@@ -212,8 +213,14 @@ if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
 //print "$start:$end\n";
 //print_r($events);
 
-$calendar = VObject\Reader::read($Datei);
-$calendar = $calendar->expand($dtstart, $dtend, $localTZ);
+try {
+	$calendar = VObject\Reader::read($Datei);
+	$calendar = $calendar->expand($dtstart, $dtend, $localTZ);
+}
+catch (Exception $e) {
+	echo "error loading events";
+	print_r($e);
+}
 
 //sort events array
 
