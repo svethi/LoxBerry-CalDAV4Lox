@@ -40,6 +40,10 @@ class CalDAVClient {
   var $xmlRequest = ""; // for debugging xml sent
   var $httpResponse = ""; // for debugging http headers received
   var $xmlResponse = ""; // for debugging xml received
+  
+  protected $httpResponseHeaders = "";
+  protected $httpParsedHeaders;
+  protected $httpResponseBody = "";
 
   /**
   * Constructor, initialises the class
@@ -202,16 +206,51 @@ class CalDAVClient {
     $rsp = "";
     while( !feof($fip) ) { $rsp .= fgets($fip,8192); }
     fclose($fip);
-    if (preg_match("#HTTP/1\.1 ([1-9])([0-9]{2})(.*)#",$rsp,$res)) {
-    	if ($res[1] != 2) {
-    		echo $res[0];
-    	}
-    }
+    
+    list( $this->httpResponseHeaders, $this->httpResponseBody ) = preg_split( '{\r?\n\r?\n}s', $rsp, 2 );
+    if ( preg_match( '{Transfer-Encoding: chunked}i', $this->httpResponseHeaders ) ) $this->Unchunk();
+    if ( preg_match('/HTTP\/\d\.\d (\d{3})/', $this->httpResponseHeaders, $status) )
+      $this->httpResponseCode = intval($status[1]);
+    else
+      $this->httpResponseCode = 0;
+      
+   	if ($this->httpResponseCode < 200 || $this->httpResponseCode > 299) {
+   		echo $this->httpResponseCode;
+   	}
     $this->headers = array();  // reset the headers array for our next request
-    $this->ParseResponse($rsp);
+    $this->ParseResponse($this->httpResponseBody);
     return $rsp;
   }
 
+  /**
+  * Unchunk a chunked response
+  */
+  function Unchunk() {
+    $content = '';
+    $chunks = $this->httpResponseBody;
+    // printf( "\n================================\n%s\n================================\n", $chunks );
+    do {
+      $bytes = 0;
+      if ( preg_match('{^((\r\n)?\s*([ 0-9a-fA-F]+)(;[^\n]*)?\r?\n)}', $chunks, $matches ) ) {
+        $octets = $matches[3];
+        $bytes = hexdec($octets);
+        $pos = strlen($matches[1]);
+        // printf( "Chunk size 0x%s (%d)\n", $octets, $bytes );
+        if ( $bytes > 0 ) {
+          // printf( "---------------------------------\n%s\n---------------------------------\n", substr($chunks,$pos,$bytes) );
+          $content .= substr($chunks,$pos,$bytes);
+          $chunks = substr($chunks,$pos + $bytes + 2);
+          // printf( "+++++++++++++++++++++++++++++++++\n%s\n+++++++++++++++++++++++++++++++++\n", $chunks );
+        }
+      }
+      else {
+        $content .= $chunks;
+      }
+    }
+    while( $bytes > 0 );
+    $this->httpResponseBody = $content;
+    // printf( "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n%s\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n", $content );
+  }
 
   /**
   * Send an OPTIONS request to the server
