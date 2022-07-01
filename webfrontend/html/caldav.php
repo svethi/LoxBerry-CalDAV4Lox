@@ -99,6 +99,21 @@ $timeend = microtime(true) - $timestart;
 //echo "$timeend - Start Kalenderabholung\n";
 
 //if (preg_match("/google\.com\/calendar/",$calURL)) {
+
+function curl_get_contents($url,$user,$pass) {
+	   $ch=curl_init($url);
+	   curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+	   curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+	   curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+	   curl_setopt($ch, CURLOPT_USERPWD, "$user:$pass");
+	   //curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+	   //curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+	   //curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+	   curl_setopt($ch, CURLOPT_HTTPHEADER, array('User-Agent: Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'));
+	   $result = curl_exec($ch);
+	   return $result;
+}
+
 if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
 	//iCal Kalender
 	//echo "iCal Kalender erkannt\n";
@@ -109,10 +124,6 @@ if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
 			$timeend = microtime(true) - $timestart;
 			//echo "$timeend - Lade Kalender von Google";
 			$fh = fopen($myFile, 'w') or die("can't open file");
-			$context = stream_context_create(array(
-			'https' => array(
-			'header'  => "Authorization: Basic " . base64_encode("$user:$pass"))
-			));
 
 			set_error_handler(
 			create_function(
@@ -121,7 +132,7 @@ if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
 			)
 			);
 			try {
-				$Datei = file_get_contents($calURL, false, $context);
+				$Datei = curl_get_contents($calURL,$user,$pass);
 			}
 			catch (Exception $e) {
 				echo $e->getMessage();
@@ -153,10 +164,6 @@ if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
 			//echo "$timeend - Cachefile geladen.";
 		}
 	} else {
-		$context = stream_context_create(array(
-		'https' => array(
-		'header'  => "Authorization: Basic " . base64_encode("$user:$pass"))
-		));
 		set_error_handler(
 		create_function(
 		'$severity, $message, $file, $line',
@@ -164,7 +171,7 @@ if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
 		)
 		);
 		try {
-			$Datei = file_get_contents($calURL, false, $context);
+			$Datei = curl_get_contents($calURL,$user,$pass);
 		}
 		catch (Exception $e) {
 			echo $e->getMessage();
