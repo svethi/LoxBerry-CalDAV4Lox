@@ -111,6 +111,9 @@ function curl_get_contents($url,$user,$pass) {
 	   //curl_setopt($ch, CURLOPT_TIMEOUT, 20);
 	   curl_setopt($ch, CURLOPT_HTTPHEADER, array('User-Agent: Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'));
 	   $result = curl_exec($ch);
+	   if ($result === false) {
+		$result = curl_error($ch);
+	   }
 	   return $result;
 }
 
