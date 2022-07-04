@@ -106,14 +106,19 @@ function curl_get_contents($url,$user,$pass) {
 	   curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 	   curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
 	   curl_setopt($ch, CURLOPT_USERPWD, "$user:$pass");
+	   curl_setopt($ch, CURLOPT_FAILONERROR, true);
 	   //curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
 	   //curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 	   //curl_setopt($ch, CURLOPT_TIMEOUT, 20);
 	   curl_setopt($ch, CURLOPT_HTTPHEADER, array('User-Agent: Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'));
 	   $result = curl_exec($ch);
-	   if ($result === false) {
-		$result = curl_strerror(curl_errno($ch));
+	   if (curl_errno($ch)) {
+		echo "curl-Error: ".curl_error($ch)."\n";
 	   }
+	   //$curl_code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+	   //if ($curl_code >= 400) {
+		//echo "calendar returned: $curl_code";
+	   //}
 	   return $result;
 }
 
