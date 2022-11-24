@@ -11,6 +11,7 @@ header('Content-Type: text/html; charset=utf-8');
 require_once("class_caldav.php");
 require __DIR__ . '/vendor/autoload.php';
 require_once "loxberry_system.php";
+require_once "loxberry_io.php";
 
 //use Recurr\Rule;
 use Sabre\VObject;
@@ -36,24 +37,32 @@ $debug = @($_GET["debug"]);
 $cache = @($_GET["cache"]);
 $mqttpretopic = "caldav4lox/";
 
-$mqttplugin = LBSystem::plugindata("mqttgateway");
-if ($mqttplugin) {
-	if (version_compare($mqttplugin['PLUGINDB_VERSION'], '0.9', '<')) {
-		//eventuell bei späterem Logging zu kleine mqtt version loggen
-		$mqtt = false;
-	} else {
-		$mqttplugin = $mqttplugin['PLUGINDB_FOLDER'];
-		$mqttcfg = file_get_contents("$lbhomedir/config/plugins/$mqttplugin/mqtt.json");
-		$mqttcfg = json_decode($mqttcfg,true);
-		$mqttcfg = $mqttcfg["Main"];
-		$test = exec("netstat -ul | grep ".$mqttcfg["udpinport"]);
-		if (strlen($test) > 0) {
-			        $mqtt = true;
-		} else {
-			        $mqtt = false;
-		}		
-	}
+//$mqttplugin = LBSystem::plugindata("mqttgateway");
+//if ($mqttplugin) {
+//	if (version_compare($mqttplugin['PLUGINDB_VERSION'], '0.9', '<')) {
+//		//eventuell bei späterem Logging zu kleine mqtt version loggen
+//		$mqtt = false;
+//	} else {
+//		$mqttplugin = $mqttplugin['PLUGINDB_FOLDER'];
+//		$mqttcfg = file_get_contents("$lbhomedir/config/plugins/$mqttplugin/mqtt.json");
+//		$mqttcfg = json_decode($mqttcfg,true);
+//		$mqttcfg = $mqttcfg["Main"];
+//		$test = exec("netstat -ul | grep ".$mqttcfg["udpinport"]);
+//		if (strlen($test) > 0) {
+//			        $mqtt = true;
+//		} else {
+//			        $mqtt = false;
+//		}		
+//	}
+//
+//}
 
+$mqttcfg = mqtt_connectiondetails();
+$test = exec("netstat -ul | grep ".mqttcfg["udpinport"]);
+if (strlen($test) > 0) {
+	$mqtt = true;
+} else {
+	$mqtt = false;
 }
 
 $myFile = "$lbpdatadir/caldav_".MD5($calURL).".ical";
