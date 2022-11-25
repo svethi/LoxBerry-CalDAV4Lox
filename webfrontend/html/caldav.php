@@ -58,7 +58,7 @@ $mqttpretopic = "caldav4lox/";
 //}
 
 $mqttcfg = mqtt_connectiondetails();
-$test = exec("netstat -ul | grep ".mqttcfg["udpinport"]);
+$test = exec("netstat -ul | grep ".$mqttcfg["udpinport"]);
 if (strlen($test) > 0) {
 	$mqtt = true;
 } else {
