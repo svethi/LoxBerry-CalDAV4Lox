@@ -317,6 +317,8 @@ foreach ( $sevents AS $k => $event ) {
 	sendMQTT("events/$mqttevent/Summary",str_replace('\,',',',$tmp->SUMMARY));
 	$resevent["Description"] = str_replace('\,',',',$tmp->DESCRIPTION);
 	sendMQTT("events/$mqttevent/Description",str_replace('\,',',',$tmp->DESCRIPTION));
+	$resevent["Location"] = ( isset($tmp->LOCATION)==true ? str_replace('\,',',',$tmp->LOCATION) : "");
+	sendMQTT("events/$mqttevent/Location",( isset($tmp->LOCATION)==true ? str_replace('\,',',',$tmp->LOCATION) : ""));
 	$resevent["fwDay"] = $tmpfwDay;
 	sendMQTT("events/$mqttevent/fwDay",$tmpfwDay);
 	$resevent["wkDay"] = $tmpWKDay;
@@ -362,6 +364,7 @@ if ($getNextEvents) {
 		$resevent["End"] = $tmpend;
 		$resevent["Summary"] = str_replace('\,',',',$tmp->SUMMARY);
 		$resevent["Description"] = str_replace('\,',',',$tmp->DESCRIPTION);
+		$resevent["Location"] = ( isset($tmp->LOCATION)==true ? str_replace('\,',',',$tmp->LOCATION) : "");
 		$resevent["fwDay"] = $tmpfwDay;
 		$resevent["wkDay"] = $tmpWKDay;
 		$resevent["now"] = (time()-$datediff+date("I")*$dst_offset);
