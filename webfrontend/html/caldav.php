@@ -116,6 +116,7 @@ function curl_get_contents($url,$user,$pass) {
 	   curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
 	   curl_setopt($ch, CURLOPT_USERPWD, "$user:$pass");
 	   curl_setopt($ch, CURLOPT_FAILONERROR, true);
+	   curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 	   //curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
 	   //curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 	   //curl_setopt($ch, CURLOPT_TIMEOUT, 20);
