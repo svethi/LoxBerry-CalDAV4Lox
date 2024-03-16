@@ -116,7 +116,6 @@ function curl_get_contents($url,$user,$pass) {
 	   curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
 	   curl_setopt($ch, CURLOPT_USERPWD, "$user:$pass");
 	   curl_setopt($ch, CURLOPT_FAILONERROR, true);
-	   curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 	   //curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
 	   //curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 	   //curl_setopt($ch, CURLOPT_TIMEOUT, 20);
@@ -212,7 +211,7 @@ if (preg_match("|\/.*\.ics[/?]{0,1}|",$calURL)) {
 		if ( isset($options["PROPFIND"]) ) {
 			// Fetch some information about the events in that calendar
 			$cal->SetDepth($depth);
-			$folder_xml = $cal->DoXMLRequest("PROPFIND", '<?xml version="1.0" encoding="utf-8" ?><propfind xmlns="DAV:"><prop><getcontentlength/><getcontenttype/><resourcetype/><getetag/></prop></propfind>' );
+			$folder_xml = $cal->DoXMLRequest("PROPFIND", '<?xml version="1.0" encoding="utf-8" ?><propfind xmlns="DAV:"><prop><getcontentlength/><getcontenttype/><resourcetype/><getetag/></prop></propfind>');
 		}
 		$cal->SetDepth($depth);
 		$events = $cal->GetEvents($start,$end);
@@ -267,9 +266,19 @@ foreach ($calendar->VEVENT as $event) {
 
 foreach ($sevents as $sevent) {
 	foreach ($result as $event) {
-		if (preg_match("/(.*($sevent)[^\r\n]*)/",$event->SUMMARY,$ematch)) {
-			$results[$sevent]=clone $event;
-			break;
+		echo "$event->SUMMARY<br>";
+		if (substr( $sevent, 0, 2 ) === "@@") {
+			$sevent = ltrim($sevent, '@@');
+			$suchmuster = "/(" . $sevent . ")/";
+			if (preg_match($suchmuster,$event->SUMMARY,$ematch)) {
+				$results[$sevent]=clone $event;
+				break;
+			}
+		} else {
+			if (preg_match("/(.*($sevent)[^\r\n]*)/",$event->SUMMARY,$ematch)) {
+				$results[$sevent]=clone $event;
+				break;
+			}
 		}
 	}
 }
@@ -318,8 +327,6 @@ foreach ( $sevents AS $k => $event ) {
 	sendMQTT("events/$mqttevent/Summary",str_replace('\,',',',$tmp->SUMMARY));
 	$resevent["Description"] = str_replace('\,',',',$tmp->DESCRIPTION);
 	sendMQTT("events/$mqttevent/Description",str_replace('\,',',',$tmp->DESCRIPTION));
-	$resevent["Location"] = ( isset($tmp->LOCATION)==true ? str_replace('\,',',',$tmp->LOCATION) : "");
-	sendMQTT("events/$mqttevent/Location",( isset($tmp->LOCATION)==true ? str_replace('\,',',',$tmp->LOCATION) : ""));
 	$resevent["fwDay"] = $tmpfwDay;
 	sendMQTT("events/$mqttevent/fwDay",$tmpfwDay);
 	$resevent["wkDay"] = $tmpWKDay;
@@ -365,7 +372,6 @@ if ($getNextEvents) {
 		$resevent["End"] = $tmpend;
 		$resevent["Summary"] = str_replace('\,',',',$tmp->SUMMARY);
 		$resevent["Description"] = str_replace('\,',',',$tmp->DESCRIPTION);
-		$resevent["Location"] = ( isset($tmp->LOCATION)==true ? str_replace('\,',',',$tmp->LOCATION) : "");
 		$resevent["fwDay"] = $tmpfwDay;
 		$resevent["wkDay"] = $tmpWKDay;
 		$resevent["now"] = (time()-$datediff+date("I")*$dst_offset);
