@@ -266,11 +266,9 @@ foreach ($calendar->VEVENT as $event) {
 
 foreach ($sevents as $sevent) {
 	foreach ($result as $event) {
-		echo "$event->SUMMARY<br>";
 		if (substr( $sevent, 0, 2 ) === "@@") {
-			$sevent = ltrim($sevent, '@@');
-			$suchmuster = "/(" . $sevent . ")/";
-			if (preg_match($suchmuster,$event->SUMMARY,$ematch)) {
+			$suchmuster = ltrim($sevent, '@@');
+			if (preg_match("/(" . $suchmuster . ")/",$event->SUMMARY,$ematch)) {
 				$results[$sevent]=clone $event;
 				break;
 			}
