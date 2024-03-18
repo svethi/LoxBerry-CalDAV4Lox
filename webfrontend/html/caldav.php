@@ -26,7 +26,10 @@ $user = @($_GET["user"]);
 $pass = @($_GET["pass"]);
 $fwdays = @($_GET["fwdays"]);
 $getNextEvents=False;
-$sevents = @explode("|",$_GET["events"]);
+//$sevents = @explode("|",$_GET["events"]);
+// Use raw query here because of automated urldecode from php...
+$getnondecoded = getNonDecodedParameters();
+$sevents = @explode("|",$getnondecoded["events"]);
 if (array_search("*",$sevents) !== False) {
 	$getNextEvents = True;
 	unset($sevents[array_search("*",$sevents)]);
@@ -267,18 +270,18 @@ foreach ($calendar->VEVENT as $event) {
 
 //filter first event for search events from next events
 foreach ($sevents as $sevent) {
+	if (preg_match("/@@/",$sevent)) {
+		$searchs = @explode("@@",$sevent);
+		$name = $searchs[0];
+		$regex = urldecode($searchs[1]);
+	} else {
+		$name = $sevent;
+		$regex = ".*($sevent)[^\r\n]*";
+	}
+	$searchevents["$sevent"]["regex"] = urlencode($regex);
+	$searchevents["$sevent"]["name"] = $name;
 	foreach ($result as $event) {
-		if (preg_match("/@@/",$sevent)) {
-			$searchs = @explode("@@",$sevent);
-			$name = $searchs[0];
-			$regex = urldecode($searchs[1]);
-		} else {
-			$name = $sevent;
-			$regex = ".*($sevent)[^\r\n]*";
-		}
 		if (preg_match("/(" . $regex . ")/",$event->SUMMARY,$ematch)) {
-			$event->NAME = $name;
-			$event->REGEX = $regex;
 			$results[$sevent]=clone $event;
 			break;
 		}
@@ -315,13 +318,13 @@ foreach ( $sevents AS $k => $event ) {
 		$resevent["hStart"] = date("d.m.Y H:i:s",$tmpstart+$datediff);
 		$resevent["hEnd"] = date("d.m.Y H:i:s",$tmpend+$datediff);
 	}
-	$resevent["Regex"] = strval($tmp->REGEX);
 	//handle dst
 	$dst_offset = getDSTOffset(date("Y",$tmpstart+$datediff));
 	$tmpstart += date("I",$tmpstart+$datediff)*$dst_offset;
 	$tmpend += date("I",$tmpend+$datediff)*$dst_offset;
 	$resevent["Start"] = $tmpstart;
-	$mqttevent = $event;
+	//$mqttevent = $event;
+	$mqttevent = $searchevents["$event"]["name"];
 	if (strlen($mqttevent) == 0) { $mqttevent = "next";}
 	sendMQTT("events/$mqttevent/Start",$tmpstart);
 	$resevent["End"] = $tmpend;
@@ -336,8 +339,9 @@ foreach ( $sevents AS $k => $event ) {
 	sendMQTT("events/$mqttevent/wkDay",$tmpWKDay);
 	$resevent["now"] = (time()-$datediff+date("I")*$dst_offset);
 	sendMQTT("events/$mqttevent/now",(time()-$datediff+date("I")*$dst_offset));
-	//$resjson[$event] = $resevent;
-	$resjson[strval($tmp->NAME)] = $resevent;
+	$resevent["regexUrlEnc"] = $searchevents["$event"]["regex"];
+	sendMQTT("events/$mqttevent/regexUrlEnc",$searchevents["$event"]["regex"]);
+	$resjson[$searchevents["$event"]["name"]] = $resevent;
 }
 
 //Liste der nächsten Events
@@ -434,5 +438,14 @@ function getDSTOffset($year = NULL) {
 
 	return $dst_offset;
 
+}
+
+function getNonDecodedParameters() {
+  $a = array();
+  foreach (explode ("&", $_SERVER["QUERY_STRING"]) as $q) {
+    $p = explode ('=', $q, 2);
+    $a[$p[0]] = isset ($p[1]) ? $p[1] : '';
+  }
+  return $a;
 }
 ?>
