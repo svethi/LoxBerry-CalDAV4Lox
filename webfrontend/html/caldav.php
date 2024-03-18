@@ -27,9 +27,8 @@ $pass = @($_GET["pass"]);
 $fwdays = @($_GET["fwdays"]);
 $getNextEvents=False;
 //$sevents = @explode("|",$_GET["events"]);
-// Use raw query here because of automated urldecode from php...
-$getnondecoded = getNonDecodedParameters();
-$sevents = @explode("|",$getnondecoded["events"]);
+// Split by Pipe | but not by escaped Pipe \|
+$sevents = preg_split('/(?<!\\\)\|/', $_GET["events"], -1, PREG_SPLIT_NO_EMPTY);
 if (array_search("*",$sevents) !== False) {
 	$getNextEvents = True;
 	unset($sevents[array_search("*",$sevents)]);
@@ -273,11 +272,12 @@ foreach ($sevents as $sevent) {
 	if (preg_match("/@@/",$sevent)) {
 		$searchs = @explode("@@",$sevent);
 		$name = $searchs[0];
-		$regex = urldecode($searchs[1]);
+		$regex = $searchs[1];
 	} else {
 		$name = $sevent;
 		$regex = ".*($sevent)[^\r\n]*";
 	}
+	$regex = str_replace("\|", "|", $regex); # Replace escaped |'s
 	$searchevents["$sevent"]["regex"] = urlencode($regex);
 	$searchevents["$sevent"]["name"] = $name;
 	foreach ($result as $event) {
