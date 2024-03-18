@@ -1,5 +1,8 @@
 <?php
 
+//error_reporting( E_ALL );
+//ini_set( "display_errors", 1 );
+
 /*
 * @author    Sven Thierfelder & Christian Fenzl
 * @copyright SD-Thierfelder & Christian Fenzl
@@ -263,25 +266,26 @@ foreach ($calendar->VEVENT as $event) {
 }
 
 //filter first event for search events from next events
-
 foreach ($sevents as $sevent) {
 	foreach ($result as $event) {
-		if (substr( $sevent, 0, 2 ) === "@@") {
-			$suchmuster = ltrim($sevent, '@@');
-			if (preg_match("/(" . $suchmuster . ")/",$event->SUMMARY,$ematch)) {
-				$results[$sevent]=clone $event;
-				break;
-			}
+		if (preg_match("/@@/",$sevent)) {
+			$searchs = @explode("@@",$sevent);
+			$name = $searchs[0];
+			$regex = urldecode($searchs[1]);
 		} else {
-			if (preg_match("/(.*($sevent)[^\r\n]*)/",$event->SUMMARY,$ematch)) {
-				$results[$sevent]=clone $event;
-				break;
-			}
+			$name = $sevent;
+			$regex = ".*($sevent)[^\r\n]*";
+		}
+		if (preg_match("/(" . $regex . ")/",$event->SUMMARY,$ematch)) {
+			$event->NAME = $name;
+			$event->REGEX = $regex;
+			$results[$sevent]=clone $event;
+			break;
 		}
 	}
 }
 
-//print_r($result);
+//print_r($results);
 
 //initialize json results
 unset($resjson);
@@ -311,6 +315,7 @@ foreach ( $sevents AS $k => $event ) {
 		$resevent["hStart"] = date("d.m.Y H:i:s",$tmpstart+$datediff);
 		$resevent["hEnd"] = date("d.m.Y H:i:s",$tmpend+$datediff);
 	}
+	$resevent["Regex"] = strval($tmp->REGEX);
 	//handle dst
 	$dst_offset = getDSTOffset(date("Y",$tmpstart+$datediff));
 	$tmpstart += date("I",$tmpstart+$datediff)*$dst_offset;
@@ -331,7 +336,8 @@ foreach ( $sevents AS $k => $event ) {
 	sendMQTT("events/$mqttevent/wkDay",$tmpWKDay);
 	$resevent["now"] = (time()-$datediff+date("I")*$dst_offset);
 	sendMQTT("events/$mqttevent/now",(time()-$datediff+date("I")*$dst_offset));
-	$resjson[$event] = $resevent;
+	//$resjson[$event] = $resevent;
+	$resjson[strval($tmp->NAME)] = $resevent;
 }
 
 //Liste der nächsten Events
