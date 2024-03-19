@@ -23,7 +23,13 @@ $user = @($_GET["user"]);
 $pass = @($_GET["pass"]);
 $fwdays = @($_GET["fwdays"]);
 $getNextEvents=False;
-$sevents = @explode("|",$_GET["events"]);
+//$sevents = @explode("|",$_GET["events"]);
+// Split by Pipe | but not by escaped Pipe \|
+if (isset($_GET["events"])) {
+	$sevents = preg_split('/(?<!\\\)\|/', $_GET["events"], -1, PREG_SPLIT_NO_EMPTY);
+} else {
+	$sevents[0] = "";
+}
 if (array_search("*",$sevents) !== False) {
 	$getNextEvents = True;
 	unset($sevents[array_search("*",$sevents)]);
@@ -264,10 +270,28 @@ foreach ($calendar->VEVENT as $event) {
 }
 
 //filter first event for search events from next events
-
+//foreach ($sevents as $sevent) {
+//	foreach ($result as $event) {
+//		if (preg_match("/(.*($sevent)[^\r\n]*)/",$event->SUMMARY,$ematch)) {
+//			$results[$sevent]=clone $event;
+//			break;
+//		}
+//	}
+//}
 foreach ($sevents as $sevent) {
+	if (preg_match("/@@/",$sevent)) {
+		$searchs = @explode("@@",$sevent);
+		$name = $searchs[0];
+		$regex = $searchs[1];
+	} else {
+		$name = $sevent;
+		$regex = ".*($sevent)[^\r\n]*";
+	}
+	$regex = str_replace("\|", "|", $regex); # Replace escaped |'s
+	$searchevents["$sevent"]["regex"] = urlencode($regex);
+	$searchevents["$sevent"]["name"] = $name;
 	foreach ($result as $event) {
-		if (preg_match("/(.*($sevent)[^\r\n]*)/",$event->SUMMARY,$ematch)) {
+		if (preg_match("/(" . $regex . ")/",$event->SUMMARY,$ematch)) {
 			$results[$sevent]=clone $event;
 			break;
 		}
@@ -309,7 +333,8 @@ foreach ( $sevents AS $k => $event ) {
 	$tmpstart += date("I",$tmpstart+$datediff)*$dst_offset;
 	$tmpend += date("I",$tmpend+$datediff)*$dst_offset;
 	$resevent["Start"] = $tmpstart;
-	$mqttevent = $event;
+	//$mqttevent = $event;
+	$mqttevent = $searchevents["$event"]["name"];
 	if (strlen($mqttevent) == 0) { $mqttevent = "next";}
 	sendMQTT("events/$mqttevent/Start",$tmpstart);
 	$resevent["End"] = $tmpend;
@@ -326,7 +351,10 @@ foreach ( $sevents AS $k => $event ) {
 	sendMQTT("events/$mqttevent/wkDay",$tmpWKDay);
 	$resevent["now"] = (time()-$datediff+date("I")*$dst_offset);
 	sendMQTT("events/$mqttevent/now",(time()-$datediff+date("I")*$dst_offset));
-	$resjson[$event] = $resevent;
+	//$resjson[$event] = $resevent;
+	$resevent["regexUrlEnc"] = $searchevents["$event"]["regex"];
+	sendMQTT("events/$mqttevent/regexUrlEnc",$searchevents["$event"]["regex"]);
+	$resjson[$searchevents["$event"]["name"]] = $resevent;
 }
 
 //Liste der nächsten Events
@@ -337,7 +365,7 @@ if ($getNextEvents) {
 	$cnt=0;
 	foreach ( $result AS $event ) {
 		$cnt+=1;
-		if (isset($tmp)) {$nextEvents .= ",\n";}
+		//if (isset($tmp)) {$nextEvents .= ",\n";}
 		$tmp = $event;
 		$tmpstart = $tmp->DTSTART->getDateTime($localTZ);
 		//date_timezone_set($tmpstart,$localTZ);
