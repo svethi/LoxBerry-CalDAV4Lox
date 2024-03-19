@@ -1,8 +1,8 @@
 <?php
 
 /*
-* @author    Sven Thierfelder & Christian Fenzl
-* @copyright SD-Thierfelder & Christian Fenzl
+* @author    Sven Thierfelder & Christian Fenzl & Michael Schlenstedt
+* @copyright SD-Thierfelder & Christian Fenzl & Michael Schlenstedt
 */
 
 $timestart = microtime(true);
@@ -365,7 +365,7 @@ if ($getNextEvents) {
 	$cnt=0;
 	foreach ( $result AS $event ) {
 		$cnt+=1;
-		//if (isset($tmp)) {$nextEvents .= ",\n";}
+		if ($cnt > 1) {$nextEvents .= ",\n";}
 		$tmp = $event;
 		$tmpstart = $tmp->DTSTART->getDateTime($localTZ);
 		//date_timezone_set($tmpstart,$localTZ);
